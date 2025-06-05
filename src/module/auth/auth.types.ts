@@ -1,15 +1,18 @@
 import { Request } from "express";
+import mongoose, { ObjectId } from "mongoose";
+import { userRole } from "../user/user.types";
 
 export class PayLoad {
-   userId: string;
-  
+   email: string;
+   role : userRole
 
-   constructor(userId: string) {
-      this.userId = userId;
+   constructor(email: string , role: userRole  ) {
+      this.email = email;
+      this.role = role;
    }
 }
 
 export interface AuthRequest extends Request {
-   payload?: PayLoad; // Thêm thuộc tính mới vào request
+   payload?: PayLoad // Thêm thuộc tính mới vào request
  }
  

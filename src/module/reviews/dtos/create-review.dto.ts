@@ -20,6 +20,9 @@ export class CreateReviewDTO {
    @Expose()
    @IsNotEmpty()
    userId: string;
+   @Expose()
+   @IsNotEmpty()
+   invoiceId : string
    static fromRequest(data: any) {
       return plainToInstance(CreateReviewDTO, data, {
          excludeExtraneousValues: true,

@@ -23,15 +23,29 @@ export const Error = {
       "AccessToken Invalid",
       500
    ),
+   refreshTokenInvalid: new ErrorCustom(
+      "RefreshTokenInvalid",
+      "RefreshToken Invalid",
+      500
+   ),
    CodeNotValid : new ErrorCustom("CodeNotValid" , "Code not valid"),
    UserNotActive: new ErrorCustom("UserNotActive", "User not active", 500),
    UserAlreadyActive : new ErrorCustom("UserAlreadyActivce", "User already active"),
 
    // **************************** POST *******************************************
    ProductNotFound : new ErrorCustom("ProductNotFound" , "Product not found"),
-   ProductNotActive : new ErrorCustom("ProductNotActive" , "Product not active")
+   ProductNotActive : new ErrorCustom("ProductNotActive" , "Product not active"),
+   // **************************** Invoice *******************************************
+   InvoiceNotFound : new ErrorCustom("InvoiceNotFound" , "Invoice not found"),
+   // **************************** Cart *******************************************
+   CartIsEmpty : new ErrorCustom("CartIsEmpty" , "Cart is empty"),
+   // **************************** User *******************************************
+   NotBelongUser : new ErrorCustom("Thisnotbelongtouser" , "This not belong to user"),
+   Forbidden : new ErrorCustom("Forbidden" , "Forbidden", 403),
+
 };
 export const handleError = (err: ErrorCustom, res: Response) => {
+   console.log(err);
    if (err instanceof ErrorCustom) {
       res.status(err.status | Error.BadRequest.status).json(
          new ResponseCustom(null, err, null)

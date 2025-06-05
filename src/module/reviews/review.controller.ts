@@ -4,18 +4,18 @@ import { Inject, Service } from "typedi";
 import { ReviewService } from "./review.service";
 import { CreateReviewDTO } from "./dtos/create-review.dto";
 import { ResponseCustom } from "../shared/response-custom";
-
-
+import { AuthRequest } from "../auth/auth.types";
 @Service()
-export class reviewController{
-    constructor(@Inject() private reviewService : ReviewService){}
-    async createReview(req: Request, res: Response, next: NextFunction) {
-        try {
-            const dto = CreateReviewDTO.fromRequest(req.body);
-            const data = await this.reviewService.createReview(dto);
-            res.status(201).json(new ResponseCustom(data,null,null));
-        } catch (error) {
-            next(error);
-        }
-    }
+export class ReviewController {
+   constructor(@Inject() private reviewService: ReviewService) {}
+   async createReview(req: AuthRequest, res: Response, next: NextFunction) {
+      try {
+         const dto = CreateReviewDTO.fromRequest(req.body);
+         const {email} = req.payload;
+         const data = await this.reviewService.createReview(dto, email);
+         res.status(201).json(new ResponseCustom(data, null, null));
+      } catch (error) {
+         next(error);
+      }
+   }
 }

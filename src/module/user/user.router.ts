@@ -1,10 +1,14 @@
 import { Router } from "express";
 import { UserController } from "./user.controller";
 import { Inject, Service } from "typedi";
+import { AuthorizeMiddleware } from "../auth/auth.middleware";
 @Service()
 export class UserRouter {
    private router: Router;
-   constructor(@Inject() private userController: UserController) {
+   constructor(
+      @Inject() private authMiddleware: AuthorizeMiddleware,
+      @Inject() private userController: UserController
+   ) {
       this.router = Router();
       this.initalizeRouter();
    }
@@ -17,9 +21,23 @@ export class UserRouter {
          "/login",
          this.userController.login.bind(this.userController)
       ),
+         this.router.post(
+            "/verify",
+            this.userController.verifyCode.bind(this.userController)
+         );
+      this.router.get(
+         "/:userId",
+         this.userController.getUser.bind(this.userController)
+      );
+      this.router.get(
+         "/profile",
+         this.authMiddleware.authorize,
+         this.userController.getUser.bind(this.userController)
+      );
       this.router.post(
-         "/verify",
-         this.userController.verifyCode.bind(this.userController)
+         "/refresh",
+         this.authMiddleware.authorizeRefreshToken,
+         this.userController.refreshToken.bind(this.userController)
       );
    }
    public getRouter(): Router {

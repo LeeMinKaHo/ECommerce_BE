@@ -1,6 +1,5 @@
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { Inject, Service } from "typedi";
-
 import { PayLoad } from "./auth.types";
 import { Config } from "../shared/config";
 import { CodeGenerator } from "../shared/utils";
@@ -18,43 +17,61 @@ export class AuthService {
    // verify token ,refresh
    // import module redis
    // env tạo folder inject
-   generateAccessAndRefresh(payload: PayLoad) {
-      // sửa lại payload
-      // this.generateAccess({ userId , deviceId })
-      // this.generateRefresh({ userId , deviceId})
-      const accessToken = this.generateAccess(payload);
-      const refreshToken = this.generateRefresh(payload);
-   
-      return new AuthRes(accessToken, refreshToken);
-   }
-   generateAccess(payload: PayLoad) {
-      return jwt.sign(
-         { ...payload },
 
-         this.config.accessTokenSecret,
-         {
-            expiresIn: timeExpire.accessToken,
-         }
+   // gen -> generate
+   async genAndCacheAccess(payload: PayLoad) {
+      const { email } = payload;
+      const access = jwt.sign({ ...payload }, this.config.accessTokenSecret, {
+         expiresIn: timeExpire.accessToken,
+      });
+      await this.redisService.setKey(
+         Keys.accessToken(email),
+         access,
+         timeExpire.accessToken
       );
+      return access;
    }
-
-   generateRefresh(payload: PayLoad) {
-      return jwt.sign({ ...payload }, this.config.refreshTokenSecret, {
+   async genAndCacheRefresh(payload: PayLoad) {
+      const { email } = payload;
+      const refresh = jwt.sign({ ...payload }, this.config.refreshTokenSecret, {
          expiresIn: timeExpire.refreshToken,
       });
+      await this.redisService.setKey(
+         Keys.refreshToken(email),
+         refresh,
+         timeExpire.refreshToken
+      );
+      return refresh;
+   }
+   async handleAuthToken(payload: PayLoad) {
+      const access = await this.genAndCacheAccess(payload);
+      const refresh = await this.genAndCacheRefresh(payload);
+
+      return { access, refresh };
+   }
+   async invalidateToken(email: string) {
+      await this.redisService.deleteKey(Keys.accessToken(email));
+      await this.redisService.deleteKey(Keys.refreshToken(email));
    }
    verifyAccessToken(token: string): PayLoad {
-      const decoded = jwt.verify(token, this.config.refreshTokenSecret);
-      // Tạo lại payload chỉ chứa 2 trường userId và deviceId
-      return new PayLoad(decoded.userId);
+      const decoded = jwt.verify(
+         token,
+         this.config.accessTokenSecret
+      ) as JwtPayload;
+
+      return new PayLoad(decoded.email, decoded.role);
    }
+
    verifyRefreshToken(token: string): PayLoad {
-      const decoded = jwt.verify(token, this.config.refreshTokenSecret);
-      // Tạo lại payload chỉ chứa 2 trường userId và deviceId
-      return new PayLoad(decoded.userId);
+      const decoded = jwt.verify(
+         token,
+         this.config.refreshTokenSecret
+      ) as JwtPayload;
+      return new PayLoad(decoded.email, decoded.role);
    }
+
    // ************ CACHE *******************
-  
+
    async cacheVerifyCode(userId: string, code: string) {
       return this.redisService.setKey(
          Keys.verificationCode(userId),

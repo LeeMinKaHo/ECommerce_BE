@@ -1,8 +1,8 @@
 import { PayLoad } from "../auth/auth.types";
 
 export const timeExpire = {
-   accessToken: 300,
-   refreshToken: 300,
+   accessToken: 100000,
+   refreshToken: 30000,
    verifyCode: 300,
 };
 export const Keys = {

@@ -1,109 +1,128 @@
-import { Service } from "typedi";
+import { Inject, Service } from "typedi";
 import { CreateProductDTO } from "./dto/create-product.dto";
 import productModel from "./model/product.model";
 import { PayLoad } from "../auth/auth.types";
-import mongoose, { Types } from "mongoose";
+import mongoose, { ObjectId, Types } from "mongoose";
 import { Pagination } from "../shared/dto/pagination.dto";
 import { Error } from "../shared/error/error-custom";
-import sizeModel from "./model/size.model";
+import sizeModel, { ISize } from "./model/size.model";
 import productSizeModel from "./model/product-variant.model";
 import { SearchProductDTO } from "./dto/search-product.dto";
 import categoryModel from "./model/category.model";
+import { FindOptionDTO, SortOption } from "./dto/find-option.dto";
+import { ProductResDTO } from "./dto/product-res.dto";
+import productVariantModel from "./model/product-variant.model";
+import { UserService } from "../user/user.service";
 
 @Service()
 export class ProductService {
-   async createProduct(createProductDTO: CreateProductDTO, payload: PayLoad) {
+   constructor(@Inject() private userService: UserService) {}
+   async createProduct(createProductDTO: CreateProductDTO, email: string) {
+      // const session = await mongoose.startSession();
+      // session.startTransaction();
+      // const { _id } = await this.userService.findUserByEmail(email);
+      // try {
+      //    const { variants, ...productData } = createProductDTO;
+      //    // 1. Tạo sản phẩm
+      //    const product = await productModel.create([productData], { session });
+      //    const productId = product[0]._id;
+
+      //    // 2. Tạo biến thể
+      //    const variantDocs = variants.map((v) => ({
+      //       ...v,
+      //       productId,
+      //    }));
+
+      //    await productVariantModel.insertMany(variantDocs, { session });
+      //    await session.commitTransaction();
+      //    session.endSession();
+      //    const newProduct = await productModel.create(createProductDTO);
+      //    await newProduct.save();
+      //    return newProduct.toObject();
+      // } catch (err) {
+      //    await session.abortTransaction();
+      //    session.endSession();
+      //    return false;
+      // }
       const newProduct = await productModel.create(createProductDTO);
-      if (mongoose.Types.ObjectId.isValid(payload.userId)) {
-         newProduct.createBy = new mongoose.Types.ObjectId(payload.userId);
-      } else {
-         // Xử lý nếu userId không hợp lệ
-         throw Error.BadRequest;
-      }
-      await newProduct.save();
-      return newProduct.toObject();
+      return await newProduct.save();
    }
-   async getProduct(productId: string) {
-      const objectId = new Types.ObjectId(productId);
-      const result = await productModel.aggregate([
-         { $match: { _id: objectId } },
-         {
-            $lookup: {
-               from: "productvariants", // Tên collection lưu variants
-               localField: "_id",
-               foreignField: "productId",
-               as: "variants",
-            },
-         },
-         {
-            $unwind: {
-               path: "$variants",
-               preserveNullAndEmptyArrays: true,
-            },
-         },
-         {
-            $lookup: {
-               from: "sizes", // Tên collection lưu size
-               localField: "variants.sizeId",
-               foreignField: "_id",
-               as: "sizeDetails",
-            },
-         },
-         {
-            $unwind: {
-               path: "$sizeDetails",
-               preserveNullAndEmptyArrays: true,
-            },
-         },
-         {
-            $group: {
-               _id: "$_id",
-               name: { $first: "$name" },
-               description: { $first: "$description" },
-               price: { $first: "$price" },
-               quanlity: { $first: "$quanlity" },
-               quanlitySold: { $first: "$quanlitySold" },
-               variants: {
-                  $push: {
-                     color: "$variants.color",
-                     imageUrl: "$variants.imageUrl",
-                     quantity: "$variants.quantity",
-                     size: "$sizeDetails.name", // Lấy tên size từ bảng sizes
-                  },
-               },
-            },
-         },
-      ]);
+   async getProductDetail(productId: string) {
+      const product = await productModel
+         .findOne({ _id: productId, isDeleted: false })
+         .populate("categoryId")
+         .populate("variants.sizeId");
 
-      if (!result || result.length === 0) throw Error.ProductNotFound;
-      return result[0];
+      if (!product) throw Error.ProductNotFound;
+
+      const getUniqueValues = <T>(arr: T[]) => [...new Set(arr)];
+
+      const colors = getUniqueValues(product.variants.map((v) => v.color));
+      const sizes = getUniqueValues(
+         product.variants.map((v) => (v.sizeId as ISize)?.name)
+      );
+
+      return { product, colors, sizes };
    }
 
-   async getAllProduct(pagination: Pagination, categoryId?: string) {
+   async getAllProduct(pagination: Pagination, findOption: FindOptionDTO) {
+      const { categoryId, minPrice, maxPrice, sort } = findOption;
       const filter: any = {};
 
       if (categoryId) {
          filter.categoryId = categoryId;
       }
+      if (minPrice) {
+         filter.price = { $gte: minPrice };
+      }
+      if (maxPrice) {
+         filter.price = { $lte: maxPrice };
+      }
 
-      const products = await productModel
-         .find(filter)
+      let query = productModel.find(filter);
+
+      switch (sort) {
+         case SortOption.Price_Asc:
+            query = query.sort({ price: 1 });
+            break;
+         case SortOption.Price_Desc:
+            query = query.sort({ price: -1 });
+            break;
+         case SortOption.Rating_Asc:
+            query = query.sort({ rating: 1 });
+            break;
+         case SortOption.Rating_Desc:
+            query = query.sort({ rating: -1 });
+            break;
+      }
+      const products = await query
          .skip(pagination.getOffSet())
          .limit(pagination.limit)
-         .exec();
+         .where({ isDeleted: false }) // Lọc sản phẩm không bị xóa
+         .populate("categoryId");
 
       pagination.total = await productModel.countDocuments(filter);
 
       return {
-         products,
+         products: products.map((product) => {
+            return ProductResDTO.fromEntity(product);
+         }),
          pagination,
       };
+   }
+   async getProduct(productId: string) {
+      const product = await productModel.findById(productId);
+      if (!product) {
+         throw Error.ProductNotFound;
+      }
+      return product;
    }
    async checkProductActive(productId: string) {
       const product = await this.getProduct(productId);
       if (product.isDeleted == true) {
          throw Error.ProductNotActive;
       }
+      return product;
    }
    async getProductSize(searchProDTO: SearchProductDTO) {
       const { productId, sizeId, color } = searchProDTO;
@@ -132,5 +151,9 @@ export class ProductService {
       return categoryModel.find({}).lean();
    }
    updateProduct(productId: string) {}
-   deleteProduct() {}
+   async deleteProduct(productId: string) {
+      const product = await this.checkProductActive(productId);
+      product.isDeleted = true;
+      return await product.save();
+   }
 }

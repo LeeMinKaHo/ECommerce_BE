@@ -1,7 +1,9 @@
 import mongoose, { Document, Schema } from "mongoose";
-import { Role } from "../user.types";
+import { userRole } from "../user.types";
 
-export interface User extends Document {
+
+export interface IUser extends Document {
+   _id:string
    email: string;
    password: string;
    name: string;
@@ -22,6 +24,6 @@ const UserSchema: Schema = new Schema({
    isActive: { type: Boolean, default: false },
    isDeleted: { type: Boolean, default: false },
    isBanned: { type: Boolean, default: false },
-   role: { type: Number, enum: [Role.User, Role.Admin], default: Role.User },
+   role: { type: Number, enum: [userRole.User, userRole.Admin], default: userRole.User },
 });
-export default mongoose.model<User>("User", UserSchema);
+export default mongoose.model<IUser>("User", UserSchema);

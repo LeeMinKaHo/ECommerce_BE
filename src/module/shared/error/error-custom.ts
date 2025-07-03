@@ -1,6 +1,6 @@
 import { Response } from "express";
 import { ResponseCustom } from "../response-custom";
-
+import { ValidationError } from "class-validator";
 
 export class ErrorCustom {
    code: string;
@@ -13,7 +13,7 @@ export class ErrorCustom {
    }
 }
 export const Error = {
-   IncorrectPass : new ErrorCustom("IncorrectPassword" ,"Incorrect password"),
+   IncorrectPass: new ErrorCustom("IncorrectPassword", "Incorrect password"),
    BadRequest: new ErrorCustom("BadRequest", "Bad Request", 500),
    ServerError: new ErrorCustom("ServerError", "Server Error", 500),
    UserNotFound: new ErrorCustom("UserNotFound", "User Not Found"),
@@ -28,34 +28,53 @@ export const Error = {
       "RefreshToken Invalid",
       500
    ),
-   CodeNotValid : new ErrorCustom("CodeNotValid" , "Code not valid"),
+   CodeNotValid: new ErrorCustom("CodeNotValid", "Code not valid"),
    UserNotActive: new ErrorCustom("UserNotActive", "User not active", 500),
-   UserAlreadyActive : new ErrorCustom("UserAlreadyActivce", "User already active"),
+   UserAlreadyActive: new ErrorCustom(
+      "UserAlreadyActivce",
+      "User already active"
+   ),
 
    // **************************** POST *******************************************
-   ProductNotFound : new ErrorCustom("ProductNotFound" , "Product not found"),
-   ProductNotActive : new ErrorCustom("ProductNotActive" , "Product not active"),
+   ProductNotFound: new ErrorCustom("ProductNotFound", "Product not found"),
+   ProductNotActive: new ErrorCustom("ProductNotActive", "Product not active"),
    // **************************** Invoice *******************************************
-   InvoiceNotFound : new ErrorCustom("InvoiceNotFound" , "Invoice not found"),
+   InvoiceNotFound: new ErrorCustom("InvoiceNotFound", "Invoice not found"),
    // **************************** Cart *******************************************
-   CartIsEmpty : new ErrorCustom("CartIsEmpty" , "Cart is empty"),
+   CartIsEmpty: new ErrorCustom("CartIsEmpty", "Cart is empty"),
    // **************************** User *******************************************
-   NotBelongUser : new ErrorCustom("Thisnotbelongtouser" , "This not belong to user"),
-   Forbidden : new ErrorCustom("Forbidden" , "Forbidden", 403),
-
+   NotBelongUser: new ErrorCustom(
+      "Thisnotbelongtouser",
+      "This not belong to user"
+   ),
+   Forbidden: new ErrorCustom("Forbidden", "Forbidden", 403),
 };
 export const handleError = (err: ErrorCustom, res: Response) => {
    console.log(err);
-   if (err instanceof ErrorCustom) {
-      res.status(err.status | Error.BadRequest.status).json(
-         new ResponseCustom(null, err, null)
+   if (Array.isArray(err) && err[0] instanceof ValidationError) {
+      const firstError = err[0];
+      const firstMessage =
+         Object.values(firstError.constraints || {})[0] || "Validation error";
+      const validationError = new ErrorCustom(
+         "VALIDATION_ERROR",
+         firstMessage,
+         400
       );
-   } else {
-      const error = new ErrorCustom(
-         Error.ServerError.code,
-         JSON.stringify(err),
-         Error.ServerError.status
-      );
-      res.status(500).json(new ResponseCustom(null, error, null));
+      return res
+         .status(400)
+         .json(new ResponseCustom(null, validationError, null));
    }
+   // 2. Custom app error
+   if (err instanceof ErrorCustom) {
+      return res
+         .status(err.status ?? 400)
+         .json(new ResponseCustom(null, err, null));
+   }
+   // 3. Unknown or system error
+   const internalError = new ErrorCustom(
+      "INTERNAL_SERVER_ERROR",
+      typeof err === "string" ? err : JSON.stringify(err),
+      500
+   );
+   return res.status(500).json(new ResponseCustom(null, internalError, null));
 };

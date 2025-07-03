@@ -2,6 +2,7 @@ import { Router } from "express";
 import { UserController } from "./user.controller";
 import { Inject, Service } from "typedi";
 import { AuthorizeMiddleware } from "../auth/auth.middleware";
+import { validateLoginDTO } from "./user.middleware";
 @Service()
 export class UserRouter {
    private router: Router;
@@ -19,6 +20,7 @@ export class UserRouter {
       );
       this.router.post(
          "/login",
+         validateLoginDTO,
          this.userController.login.bind(this.userController)
       ),
          this.router.post(
@@ -26,14 +28,15 @@ export class UserRouter {
             this.userController.verifyCode.bind(this.userController)
          );
       this.router.get(
-         "/:userId",
-         this.userController.getUser.bind(this.userController)
-      );
-      this.router.get(
          "/profile",
          this.authMiddleware.authorize,
          this.userController.getUser.bind(this.userController)
       );
+      this.router.get(
+         "/:userId",
+         this.userController.getUser.bind(this.userController)
+      );
+
       this.router.post(
          "/refresh",
          this.authMiddleware.authorizeRefreshToken,

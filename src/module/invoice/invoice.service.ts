@@ -16,69 +16,43 @@ export class InvoiceService {
    constructor(
       @Inject() private paypalService: PayPalService,
       @Inject() private cartService: CartService,
-      @Inject() private userService :UserService 
+      @Inject() private userService: UserService
    ) {}
-   createInvoice = async (email : string) => {
-      // const {_id : userId} = await this.userService.findUserByEmail(email) 
-      // const session = await mongoose.startSession();
-      // session.startTransaction();
-      // const cartItems = await this.cartService.getCart(email);
-      // if (cartItems.length === 0) {
-      //    throw Error.CartIsEmpty;
-      // }
-      // const totalPrice = cartItems.reduce((sum, item) => {
-      //    const variant = item.productVariantId as IProductVariant;
-      //    const product = variant.productId as IProduct;
-      //    const price = product.price || 0;
-      //    return sum + price * item.quantity;
-      // }, 0);
-      // const paypalOrderId = await this.paypalService.createPayment(
-      //    totalPrice,
-      //    "USD"
-      // );
-      // try {
-      //    // 1. Lấy cart items theo user
+   createInvoice = async (email: string) => {
+      const user = await this.userService.findUserByEmail(email);
+      const cartItems = await this.cartService.getCart(email);
+      if (cartItems.length === 0) {
+         throw Error.CartIsEmpty;
+      }
+      const totalPrice = await this.cartService.getTotalPrice(email);
 
-      //    // 2. Tính tổng tiền
-
-      //    // 3. Tạo invoice
-      //    const invoice = new invoiceModel({
-      //       userId,
-      //       totalPrice,
-      //       status: InvoiceStatus.PENDING,
-      //       paypalInvoiceId: paypalOrderId, // Optional field for PayPal order ID
-      //    });
-      //    const invoiceItems = cartItems.map((item) => {
-      //       const variant = item.productVariantId as IProductVariant;
-      //       const product = variant.productId as IProduct;
-      //       const price = product.price || 0;
-
-      //       return new invoiceItemModel({
-      //          invoiceId: invoice._id,
-      //          price,
-      //          productVariantId: variant._id,
-      //          quantity: item.quantity,
-      //          totalPrice: price * item.quantity,
-      //       }).save({ session });
-      //    });
-
-      //    await Promise.all(invoiceItems);
-
-      //    await invoice.save({ session });
-
-      //    // 4. (Tuỳ chọn) Xoá giỏ hàng sau khi tạo đơn
-      //    await this.cartService.clearCart(userId);
-
-      //    // 5. Commit transaction
-      //    await session.commitTransaction();
-      //    session.endSession();
-
-      //    return invoice;
-      // } catch (error) {
-      //    await session.abortTransaction();
-      //    session.endSession();
-      //    throw error;
-      // }
+      const paypalOrderId = await this.paypalService.createPayment(
+         totalPrice,
+         "USD"
+      );
+      const invoiceItems = cartItems.map((item) => {
+         const variant = item.product; // giả sử từ $lookup vào product
+         const quantity = item.quantity;
+         const price = variant.price;
+         return {
+            productVariantId: item.productVariantId,
+            name: variant.name,
+            size: variant.variant.size,
+            color: variant.variant.color,
+            imageUrl: variant.variant.imageUrl,
+            price: price,
+            quantity: quantity,
+            total: price * quantity,
+         };
+      });
+      const invoice = await invoiceModel.create({
+         userId: user._id,
+         paypalInvoiceId: paypalOrderId,
+         totalPrice,
+         status: InvoiceStatus.PENDING,
+         items: invoiceItems,
+      });
+      return invoice._id
    };
    captureInvoice = async (invoiceId: string) => {
       console.log(invoiceId);
@@ -86,10 +60,8 @@ export class InvoiceService {
       // const status = await this.paypalService.executePayment(
       //    invoice.paypalInvoiceId
       // );
-      const invoice = await invoiceModel.findOne({
-         paypalInvoiceId: invoiceId,
-      });
-      const status = await this.paypalService.executePayment(invoiceId);
+      const invoice = await this.findInvoice(invoiceId);
+      const status = await this.paypalService.executePayment(invoice.paypalInvoiceId);
       console.log(status);
       if (status === "COMPLETED") {
          invoice.status = InvoiceStatus.COMPLETED;
@@ -99,6 +71,7 @@ export class InvoiceService {
          invoice.status = InvoiceStatus.CANCELLED;
          await invoice.save();
       }
+      this.cartService.clearCart(invoice.userId);
       return status;
    };
    findInvoice = async (invoiceId: string) => {

@@ -1,18 +1,15 @@
+import { Types } from "mongoose";
 import { Inject, Service } from "typedi";
-import { CreateProductDTO } from "./dto/create-product.dto";
-import productModel from "./model/product.model";
-import { PayLoad } from "../auth/auth.types";
-import mongoose, { ObjectId, Types } from "mongoose";
 import { Pagination } from "../shared/dto/pagination.dto";
 import { Error } from "../shared/error/error-custom";
-import sizeModel, { ISize } from "./model/size.model";
-import productSizeModel from "./model/product-variant.model";
-import { SearchProductDTO } from "./dto/search-product.dto";
-import categoryModel from "./model/category.model";
+import { UserService } from "../user/user.service";
+import { CreateProductDTO } from "./dto/create-product.dto";
 import { FindOptionDTO, SortOption } from "./dto/find-option.dto";
 import { ProductResDTO } from "./dto/product-res.dto";
-import productVariantModel from "./model/product-variant.model";
-import { UserService } from "../user/user.service";
+import { SearchProductDTO } from "./dto/search-product.dto";
+import categoryModel from "./model/category.model";
+import productSizeModel from "./model/product-variant.model";
+import productModel from "./model/product.model";
 
 @Service()
 export class ProductService {
@@ -50,17 +47,14 @@ export class ProductService {
    async getProductDetail(productId: string) {
       const product = await productModel
          .findOne({ _id: productId, isDeleted: false })
-         .populate("categoryId")
-         .populate("variants.sizeId");
+         .populate("categoryId");
 
       if (!product) throw Error.ProductNotFound;
 
       const getUniqueValues = <T>(arr: T[]) => [...new Set(arr)];
 
       const colors = getUniqueValues(product.variants.map((v) => v.color));
-      const sizes = getUniqueValues(
-         product.variants.map((v) => (v.sizeId as ISize)?.name)
-      );
+      const sizes = getUniqueValues(product.variants.map((v) => v.size));
 
       return { product, colors, sizes };
    }
@@ -155,5 +149,11 @@ export class ProductService {
       const product = await this.checkProductActive(productId);
       product.isDeleted = true;
       return await product.save();
+   }
+   async checkProductVariantExist(productVariantId: string) {
+      const product = await productModel.findOne({
+         "variants._id": productVariantId,
+      }); 
+      return !!product; 
    }
 }

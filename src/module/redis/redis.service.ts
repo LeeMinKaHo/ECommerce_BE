@@ -6,9 +6,15 @@ export class RedisService {
    constructor() {
       this.redis = new Redis();
    }
+   private prefixKey(type: string, key: string) {
+      return `${type}:${key}`;
+   }
    // constructor
-   async setKey(key: string, value: string, seconds: number) {
-      return await this.redis.set(key, value, "EX", seconds);
+   async setKey(key: string, value: string, seconds?: number) {
+      if (seconds) {
+         return await this.redis.set(key, value, "EX", seconds);
+      }
+      return await this.redis.set(key, value);
    }
 
    async deleteKey(key: string): Promise<boolean> {
@@ -24,22 +30,16 @@ export class RedisService {
    async getKey(key: string): Promise<string | null> {
       return await this.redis.get(key);
    }
-   async getKeys(pattern: string): Promise<string[]> {
-      let cursor = "0";
-      let keys: string[] = [];
+   async flushAll(): Promise<void> {
+      await this.redis.flushall();
+   }
+   async setObject<T>(key: string, value: T, seconds?: number) {
+      const stringValue = JSON.stringify(value);
+      return await this.setKey(key, stringValue, seconds);
+   }
 
-      do {
-         const result = await this.redis.scan(
-            cursor,
-            "MATCH",
-            pattern,
-            "COUNT",
-            100
-         );
-         cursor = result[0];
-         keys = [...keys, ...result[1]];
-      } while (cursor !== "0");
-
-      return keys;
+   async getObject<T>(key: string): Promise<T | null> {
+      const result = await this.getKey(key);
+      return result ? (JSON.parse(result) as T) : null;
    }
 }

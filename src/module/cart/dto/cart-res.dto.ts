@@ -23,21 +23,7 @@ export class CartResDTO {
       });
    }
    static fromEntity(item: any): CartResDTO {
-    const variant = item.productVariantId;
-    const product = variant.productId;
-    console.log("item", item);
-    const data: CartResDTO = {
-      cartItemId: item._id.toString(),
-      name: product.name,
-      imageUrl: variant.imageUrl,
-      sizeName: variant.sizeId.name,
-      color: variant.color,
-      price: product.price,
-      quantity: item.quantity,
-      totalPrice: product.price * item.quantity,
-    };
-
-    return plainToInstance(CartResDTO, data, {
+    return plainToInstance(CartResDTO, item, {
       excludeExtraneousValues: true,
     });
   }

@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
 import { ICategory } from "./category.model";
 import productVariantModel, { IProductVariant } from "./product-variant.model";
+import reviewModel, { IReview } from "../../reviews/review.model";
 
 export interface IProduct extends Document {
    name: string;
@@ -11,6 +12,7 @@ export interface IProduct extends Document {
    createBy: mongoose.Types.ObjectId;
    categoryId: ICategory; // 👈 Thêm dòng này
    variants: IProductVariant[]; // Thêm trường variants
+   reviews: IReview; // Thêm trường reviews
    isDeleted: boolean;
 }
 
@@ -31,6 +33,7 @@ const ProductSchema: Schema = new Schema({
       required: true,
    },
    variants: [productVariantModel.schema], // Thêm trường variants
+   reviews: [reviewModel.schema], // Thêm trường reviews
    isDeleted: { type: Boolean, default: false },
 });
 

@@ -1,92 +1,86 @@
-import { Inject, Service } from "typedi";
-import { CartModel } from "./cart.model";
 import mongoose, { Types } from "mongoose";
-import { AddCartDTO } from "./dto/add-cart.dto";
-import productVariantModel from "../product/model/product-variant.model";
-import { CartResDTO } from "./dto/cart-res.dto";
-import { UpdateCartDTO } from "./dto/update-cart.dto";
+import { Inject, Service } from "typedi";
 import "../product/model/size.model";
+import { ProductService } from "../product/product.service";
 import { UserService } from "../user/user.service";
+import { CartModel } from "./cart.model";
+import { AddCartDTO } from "./dto/add-cart.dto";
+import { UpdateCartDTO } from "./dto/update-cart.dto";
+import productModel from "../product/model/product.model";
 @Service()
 export class CartService {
-   constructor(@Inject() private userService: UserService) {}
+   constructor(
+      @Inject() private userService: UserService,
+      @Inject() private productService: ProductService
+   ) {}
    async addToCart(email: string, createCartDto: AddCartDTO) {
-      const { _id: userId } = await this.userService.findUserByEmail(email);
-      const { color, productId, sizeId, quantity } = createCartDto;
+      const { productVariantId, quantity } = createCartDto;
 
-      const variant = await productVariantModel.findOne({
-         color,
-         productId,
-         sizeId,
-      });
-      const { _id: productVariantId } = variant;
-      if (!variant) {
-         throw new Error("Không tìm thấy biến thể sản phẩm phù hợp.");
-      }
+      // 1. Tìm user
+      const user = await this.userService.findUserByEmail(email);
 
-      const existingItem = await CartModel.findOne({
-         userId,
+      // 2. Kiểm tra variant có tồn tại không
+      await this.productService.checkProductVariantExist(productVariantId);
+
+      // 3. Tìm cart item hiện tại (nếu có)
+      const existingCartItem = await CartModel.findOne({
+         userId: user._id,
          productVariantId,
       });
 
-      if (existingItem) {
-         existingItem.quantity += quantity;
-         await existingItem.save();
+      if (existingCartItem) {
+         // 4. Nếu đã có thì cập nhật quantity
+         existingCartItem.quantity += quantity;
+         await existingCartItem.save();
       } else {
-         const newItem = new CartModel({
-            userId,
+         // 5. Nếu chưa có thì tạo mới
+         await CartModel.create({
+            userId: user._id,
             productVariantId,
             quantity,
          });
-         await newItem.save();
       }
-
-      // 👉 Đếm tổng số sản phẩm khác nhau trong giỏ hàng (số dòng)
-      const totalItems = await CartModel.countDocuments({
-         userId,
-      });
-
-      return {
-         message: "Thêm sản phẩm vào giỏ thành công",
-         totalItems,
-      };
    }
 
    async getCart(email: string) {
       const { _id: userId } = await this.userService.findUserByEmail(email);
-      const cartItems = await CartModel.find({
-         userId,
-      })
-         .populate({
-            path: "productVariantId",
-            model: "ProductVariant",
-            populate: [
-               {
-                  path: "productId",
-                  model: "Product",
-               },
-               {
-                  path: "sizeId", // đây là cái thêm mới
-                  model: "Size",
-               },
-            ],
-         })
-         .lean();
-      console.log(cartItems);
-      return cartItems;
+     
+
+      const cartWithProducts = await CartModel.aggregate([
+         {
+            $match: { userId },
+         },
+         {
+            $lookup: {
+               from: "products",
+               let: { variantId: "$productVariantId" },
+               pipeline: [
+                  { $unwind: "$variants" },
+                  {
+                     $match: {
+                        $expr: { $eq: ["$variants._id", "$$variantId"] },
+                     },
+                  },
+                  { $project: { price: 1, name: 1, variant: "$variants" } },
+               ],
+               as: "product",
+            },
+         },
+         {
+            $unwind: "$product",
+         },
+      ]);
+      return cartWithProducts
    }
 
    async updateCartItem(email: string, updateCartDTO: UpdateCartDTO) {
       const { cartItemId, quantity } = updateCartDTO;
-      const item = await CartModel.findById(cartItemId);
 
-      if (!item) {
-         throw new Error("Cart item not found");
-      }
+      const cartItem = await this.findCartItem(cartItemId);
 
-      item.quantity = quantity;
-      await item.save();
-      return item;
+      cartItem.quantity = quantity;
+      await cartItem.save();
+      return cartItem;
    }
 
    async removeCartItem(email: string, cartItemId: string) {
@@ -96,5 +90,22 @@ export class CartService {
    async clearCart(email: string) {
       const { _id: userId } = await this.userService.findUserByEmail(email);
       return await CartModel.deleteMany({ userId: new Types.ObjectId(userId) });
+   }
+   async findCartItem(cartItemId: string) {
+      const cartItem = await CartModel.findById(cartItemId);
+      if (!cartItem) {
+         throw new Error("Cart item not found");
+      }
+      return cartItem;
+   }
+   async getTotalPrice(email: string) {
+      const cartItems = await this.getCart(email);
+      let totalPrice = 0;
+
+      for (const item of cartItems) {
+         totalPrice += item.product.price * item.quantity;
+      }
+
+      return totalPrice;
    }
 }

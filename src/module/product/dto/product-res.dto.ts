@@ -4,6 +4,8 @@ import { ProductType } from "../product.type";
 
 export class ProductResDTO {
     @Expose()
+    _id : string;
+    @Expose()
     name: string;
 
     @Expose()

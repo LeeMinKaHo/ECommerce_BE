@@ -57,6 +57,7 @@ export class UserController {
    };
    getUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
       try {
+         console.log("req.payload", req.payload);
          const {email} = req.payload
          res.json(
             new ResponseCustom(

@@ -17,12 +17,12 @@ import { LogoutDTO } from "./dtos/logout.dto";
 import userAdvanceModel from "./model/user-advance.model";
 import userModel, { IUser } from "./model/user.model";
 import { userActive } from "./user.types";
-import e from "cors";
 @Service()
 export class UserService {
    constructor(
       @Inject() private authService: AuthService,
-      @Inject() private queueManager: QueueManager
+      @Inject() private queueManager: QueueManager,
+    
    ) {}
    async createUser(createUser: CreateUserDTO) {
       let userId: string;

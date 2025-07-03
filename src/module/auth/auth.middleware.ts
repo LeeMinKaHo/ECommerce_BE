@@ -17,22 +17,24 @@ export class AuthorizeMiddleware {
    authorize = async (req: AuthRequest, res: Response, next: NextFunction) => {
       try {
          const authHeader = req.headers.authorization;
-         console.log("authHeader", authHeader);
+
          if (!authHeader || !authHeader.startsWith("Bearer ")) {
             throw Error.UnAuthorize;
          }
 
          const token = authHeader.split(" ")[1]; // Lấy token từ "Bearer <token>"
+
          const payload: PayLoad = this.authService.verifyAccessToken(token);
          req.payload = payload;
 
          const acssesToken = await this.redisService.getKey(
             Keys.accessToken(payload.email)
          );
-         if (token === acssesToken) {
-            return next();
+
+         if (!acssesToken || token !== acssesToken) {
+            return next(Error.accessTokenInvalid);
          }
-         next(Error.accessTokenInvalid);
+         return next();
       } catch (error) {
          //next(error)
          next(error);
@@ -48,25 +50,29 @@ export class AuthorizeMiddleware {
          const accessDTO = RefreshTokenDTO.fromRequest(req.body);
          await validateOrReject(accessDTO);
          const { refreshToken } = accessDTO;
+
          const payload: PayLoad =
             this.authService.verifyRefreshToken(refreshToken);
          req.payload = payload;
 
-         //req.payload = payload
          const refreshTokenCache = await this.redisService.getKey(
             Keys.refreshToken(payload.email)
          );
-         console.log("refreshTokenCache", refreshTokenCache);
-         console.log("refreshToken", refreshToken);
-         if (refreshTokenCache === refreshToken) {
-            return next();
+
+         // Nếu muốn kiểm tra user tồn tại:
+         // const user = await this.userService.findByEmail(payload.email);
+         // if (!user) return next(Error.refreshTokenInvalid);
+
+         if (!refreshTokenCache || refreshToken !== refreshTokenCache) {
+            return next(Error.refreshTokenInvalid);
          }
-         next(Error.refreshTokenInvalid);
+
+         return next();
       } catch (error) {
-         //next(error);
          next(error);
       }
    };
+
    authorizeRoles = (...allowedRoles: userRole[]) => {
       return (req: AuthRequest, res: Response, next: NextFunction) => {
          try {

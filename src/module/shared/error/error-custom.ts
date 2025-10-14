@@ -38,6 +38,14 @@ export const Error = {
    // **************************** POST *******************************************
    ProductNotFound: new ErrorCustom("ProductNotFound", "Product not found"),
    ProductNotActive: new ErrorCustom("ProductNotActive", "Product not active"),
+   ProductAlreadyDeleted: new ErrorCustom(
+      "ProductAlreadyDeleted",
+      "Product already deleted"
+   ),
+   ProductVariantNotFound: new ErrorCustom(
+      "ProductVariantNotFound",
+      "Product variant not found"
+   ),
    // **************************** Invoice *******************************************
    InvoiceNotFound: new ErrorCustom("InvoiceNotFound", "Invoice not found"),
    // **************************** Cart *******************************************

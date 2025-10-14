@@ -11,12 +11,9 @@ export class ProductController {
    constructor(@Inject() private productService: ProductService) {}
    async createProduct(req: AuthRequest, res: Response, next: NextFunction) {
       try {
-         const {email} = req.payload;
+         const { email } = req.payload;
          const createProductDTO = CreateProductDTO.fromRequest(req.body);
-         const data = await this.productService.createProduct(
-            createProductDTO,
-            email
-         );
+         const data = await this.productService.createProduct(createProductDTO , email);
          res.json(new ResponseCustom(data, null, null));
       } catch (error) {
          next(error);
@@ -56,6 +53,14 @@ export class ProductController {
          const { productId } = req.params;
          const data = await this.productService.deleteProduct(productId);
          res.json(new ResponseCustom(data, null, null));
+      } catch (error) {
+         next(error);
+      }
+   }
+   async getAllSizes(req: Request, res: Response, next: NextFunction) {
+      try {
+         const sizes = await this.productService.getAllSizes();
+         res.json(new ResponseCustom(sizes, null, null));
       } catch (error) {
          next(error);
       }

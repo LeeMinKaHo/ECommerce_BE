@@ -23,10 +23,15 @@ export class ProductRouter {
       );
       this.router.get("/",this.productController.getProducts.bind(this.productController)),
       this.router.get("/categories", this.productController.getCategory.bind(this.productController))
+      this.router.get(
+         "/sizes",
+         this.productController.getAllSizes.bind(this.productController)
+      );
       this.router.get("/:productId", this.productController.getProduct.bind(this.productController))
       this.router.delete(
          "/:productId",this.productController.deleteProduct.bind(this.productController)
       );
+      
    }
    getRouter() {
       return this.router;

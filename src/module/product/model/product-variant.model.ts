@@ -1,6 +1,4 @@
-import mongoose, { Document, Schema, Types } from "mongoose";
-import { IProduct } from "./product.model";
-import { ISize } from "./size.model";
+import mongoose, { Document, Schema } from "mongoose";
 
 export interface IProductVariant extends Document {
    size: string;
@@ -9,7 +7,7 @@ export interface IProductVariant extends Document {
    quantity: number;
 }
 const productVariantSchema = new Schema<IProductVariant>({
-   size: { type: String , ref: "Size", required: true },
+   size: { type: String , required: true }, // "S", "M", "L", ...
    color: { type: String, required: true },       // "Red", "Black", ...
    imageUrl: { type: String, required: true },    // Ảnh minh họa cho màu đó
    quantity: { type: Number, required: true, default: 0 },

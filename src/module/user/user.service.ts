@@ -17,6 +17,7 @@ import { LogoutDTO } from "./dtos/logout.dto";
 import userAdvanceModel from "./model/user-advance.model";
 import userModel, { IUser } from "./model/user.model";
 import { userActive } from "./user.types";
+import { CartService } from "../cart/cart.service";
 @Service()
 export class UserService {
    constructor(
@@ -102,9 +103,13 @@ export class UserService {
          email,
          role
       });
+      console.log("access", access);
+      console.log("refresh", refresh);
+      // Gửi email thông báo đăng nhập thành công
       return LoginRes.fromLoginRes({ user, access, refresh });
    }
    async login(loginDTO: LoginDTO) {
+      console.log("loginDTO", loginDTO);
       const { email, password } = loginDTO;
       const user = (await this.isUserActive(email)).toObject();
       const checkPassword = await comparePassword(password, user.password);
@@ -132,4 +137,17 @@ export class UserService {
       await this.authService.invalidateToken(email);
       await this.authService.handleAuthToken({ email , role });
    }
+   async getUserIdByEmail(email: string): Promise<IUser> {
+         const user = await userModel.findOne({ email });
+         if (!user)   throw Error.UserNotFound;
+         return user.toObject();
+      }
+   // async getUserAdvance(email: string  ) {
+   //    const user = await this.findUserByEmail(email);
+   //    const cartCount = await this.cartService.getCartLength(email);
+   //    return{
+   //       ...user.toObject(),
+   //       cartCount,
+   //    }
+   // }
 }

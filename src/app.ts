@@ -1,23 +1,22 @@
-import "reflect-metadata";
-import express, { NextFunction, Request, Response } from "express";
-import { UserRouter } from "./module/user/user.router";
-import { connectMongoDB } from "./module/shared/database/connnection";
 import cors from "cors";
+import express from "express";
+import http from "http";
+import path from "path";
+import "reflect-metadata";
+import { Server } from "socket.io";
+import { Container } from "typedi";
 import { QueueManager } from "./module/bullmq/queue-manager";
 import { WorkManager } from "./module/bullmq/worker.service";
-import { ProductRouter } from "./module/product/product.router";
-import { ErrorCustom, handleError } from "./module/shared/error/error-custom";
-import { ReviewRouter } from "./module/reviews/review.router";
-import { Container } from "typedi";
 import cartRouter from "./module/cart/cart.router";
-import { requestLogger } from "./module/shared/middleware/request-log.middleware";
-import path from "path";
-import { InvoiceRouter } from "./module/invoice/invoice.router";
-import { Server } from "socket.io";
-import http from "http";
-import jwt, { JwtPayload } from "jsonwebtoken";
-import { Config } from "./module/shared/config";
 import { setupChatGateway } from "./module/chat/chat.gateway";
+import { InvoiceRouter } from "./module/invoice/invoice.router";
+import { ProductRouter } from "./module/product/product.router";
+import { ReviewRouter } from "./module/reviews/review.router";
+import { connectMongoDB } from "./module/shared/database/connnection";
+import { handleError } from "./module/shared/error/error-custom";
+import { requestLogger } from "./module/shared/middleware/request-log.middleware";
+import { UserRouter } from "./module/user/user.router";
+import uploadRoutes from "./module/upload/upload.route";
 const app = express();
 const PORT = 4000;
 app.use(express.static(path.join(__dirname, "../public")));
@@ -46,6 +45,7 @@ app.use("/products", Container.get(ProductRouter).getRouter());
 app.use("/reviews", Container.get(ReviewRouter).getRouter());
 app.use("/carts", cartRouter);
 app.use("/invoices", Container.get(InvoiceRouter).getRouter());
+app.use("/api/upload", uploadRoutes);
 // connect DB
 // handle error
 app.use((err, req, res, next) => {

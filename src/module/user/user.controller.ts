@@ -1,20 +1,17 @@
 import { NextFunction, Request, Response } from "express";
 import { Inject, Service } from "typedi";
-import { AuthService } from "../auth/auth.service";
-import { AuthRequest, PayLoad } from "../auth/auth.types";
+import { AuthRequest } from "../auth/auth.types";
+import { QueueManager } from "../bullmq/queue-manager";
 import { handleErrorValidation } from "../shared/error/handle-validation-response";
 import { ResponseCustom } from "../shared/response-custom";
 import { CreateUserDTO } from "./dtos/create-user.dto";
 import { LoginDTO } from "./dtos/login.dto";
 import { UserService } from "./user.service";
-import { QueueManager } from "../bullmq/queue-manager";
-import { jobName, queueName } from "../shared/bullmq.share";
-import mongoose from "mongoose";
 @Service()
 export class UserController {
    constructor(
       @Inject() private userService: UserService,
-      @Inject() private authService: AuthService,
+    
       @Inject() private queueManager: QueueManager
    ) {}
    createUser = async (req: Request, res: Response, next: NextFunction) => {
@@ -30,9 +27,11 @@ export class UserController {
    };
    login = async (req: Request, res: Response, next: NextFunction) => {
       try {
+         console.log("req.body", req.body);
          const user = await this.userService.login(
             LoginDTO.fromRequest(req.body)
          );
+         
          res.json(new ResponseCustom(user, null, null));
       } catch (error) {
          handleErrorValidation(error, next);
@@ -40,10 +39,9 @@ export class UserController {
    };
    logout = async (req: AuthRequest, res: Response, next: NextFunction) => {
       try {
-
          res.json(new ResponseCustom(true, null, null));
       } catch (error) {
-         handleErrorValidation(error , next);
+         handleErrorValidation(error, next);
       }
    };
    verifyCode = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -58,7 +56,7 @@ export class UserController {
    getUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
       try {
          console.log("req.payload", req.payload);
-         const {email} = req.payload
+         const { email } = req.payload;
          res.json(
             new ResponseCustom(
                await this.userService.findUserByEmail(email),
@@ -82,5 +80,6 @@ export class UserController {
       } catch (error) {
          next(error);
       }
-   }
+   };
+ 
 }

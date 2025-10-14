@@ -11,12 +11,12 @@ export class CartController {
    async addToCart(req: AuthRequest, res: Response, next: NextFunction) {
       try {
          const { email } = req.payload;
-         await this.cartService.addToCart(
+         const totalCart = await this.cartService.addToCart(
             email,
             AddCartDTO.fromRequest(req.body)
          );
          // Logic to add product to cart
-         res.status(200).json(new ResponseCustom(true, null, null));
+         res.status(200).json(new ResponseCustom({totalCart}, null, null));
       } catch (error) {
          next(error);
       }
@@ -40,4 +40,5 @@ export class CartController {
          next(error);
       }
    }
+ 
 }

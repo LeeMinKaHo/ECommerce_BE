@@ -13,13 +13,15 @@ cartRouter.post(
    validateCreateCart,
    cartController.addToCart.bind(cartController)
 );
-cartRouter.get("/" , authMiddleware.authorize , cartController.getCart.bind(cartController));
+cartRouter.get(
+   "/",
+   authMiddleware.authorize,
+   cartController.getCart.bind(cartController)
+);
 cartRouter.delete(
    "/:cartId",
    authMiddleware.authorize,
    cartController.removeCartItem.bind(cartController)
 );
-
-
 
 export default cartRouter;

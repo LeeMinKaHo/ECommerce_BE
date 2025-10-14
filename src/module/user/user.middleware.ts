@@ -10,6 +10,7 @@ export const validateLoginDTO = async (
    try {
       const loginDTO = LoginDTO.fromRequest(req.body);
       await validateOrReject(loginDTO);
+      next();
    } catch (error) {
       next(error);
    }

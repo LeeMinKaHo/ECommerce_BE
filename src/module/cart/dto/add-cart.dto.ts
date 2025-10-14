@@ -8,23 +8,23 @@ import {
 } from "class-validator";
 
 export class AddCartDTO {
- 
    @Expose()
    @IsNotEmpty()
    @IsString()
-   productVariantId: string;
-
+   variantId: string;
    @Expose()
    @IsOptional()
    @IsNumber()
    @Min(1)
    @Transform(({ value }) => (value !== undefined ? Number(value) : 1))
    quantity: number;
-
+   @Expose()
+   @IsNotEmpty()
+   @IsString()
+   productId: string;
    static fromRequest(body: any) {
       return plainToInstance(AddCartDTO, body, {
          excludeExtraneousValues: true,
       });
    }
 }
-

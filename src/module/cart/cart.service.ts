@@ -7,25 +7,32 @@ import { CartModel } from "./cart.model";
 import { AddCartDTO } from "./dto/add-cart.dto";
 import { UpdateCartDTO } from "./dto/update-cart.dto";
 import productModel from "../product/model/product.model";
+import { CartRepository } from "./cart.repository";
 @Service()
 export class CartService {
    constructor(
       @Inject() private userService: UserService,
-      @Inject() private productService: ProductService
+      @Inject() private productService: ProductService,
+      @Inject() private cartRepository: CartRepository
    ) {}
    async addToCart(email: string, createCartDto: AddCartDTO) {
-      const { productVariantId, quantity } = createCartDto;
+      const {  productId, quantity , variantId} = createCartDto;
 
       // 1. Tìm user
       const user = await this.userService.findUserByEmail(email);
-
+ 
       // 2. Kiểm tra variant có tồn tại không
-      await this.productService.checkProductVariantExist(productVariantId);
-
+      const product = await this.productService.getProductAndVariant(productId, variantId);
+      const { _id, name, variant , price } = product;
+      const { color, size, imageUrl } = variant;
+      console.log(product)
+      console.log(price)
       // 3. Tìm cart item hiện tại (nếu có)
       const existingCartItem = await CartModel.findOne({
          userId: user._id,
-         productVariantId,
+         productId: new Types.ObjectId(productId),
+         size,
+         color,
       });
 
       if (existingCartItem) {
@@ -36,41 +43,28 @@ export class CartService {
          // 5. Nếu chưa có thì tạo mới
          await CartModel.create({
             userId: user._id,
-            productVariantId,
+            name,
+            color,
+            imageUrl,
+            size,
+            productId: new Types.ObjectId(productId),
+            productVariantId: _id,
+            price,
             quantity,
+            variantId
          });
       }
+      return await this.cartRepository.countByUserId(new Types.ObjectId(user._id));
    }
 
    async getCart(email: string) {
       const { _id: userId } = await this.userService.findUserByEmail(email);
-     
 
-      const cartWithProducts = await CartModel.aggregate([
-         {
-            $match: { userId },
-         },
-         {
-            $lookup: {
-               from: "products",
-               let: { variantId: "$productVariantId" },
-               pipeline: [
-                  { $unwind: "$variants" },
-                  {
-                     $match: {
-                        $expr: { $eq: ["$variants._id", "$$variantId"] },
-                     },
-                  },
-                  { $project: { price: 1, name: 1, variant: "$variants" } },
-               ],
-               as: "product",
-            },
-         },
-         {
-            $unwind: "$product",
-         },
-      ]);
-      return cartWithProducts
+      const cartItems = await CartModel.find({
+         userId: new Types.ObjectId(userId),
+      });
+      console.log("cart:",cartItems);
+      return cartItems;
    }
 
    async updateCartItem(email: string, updateCartDTO: UpdateCartDTO) {
@@ -87,8 +81,7 @@ export class CartService {
       return await CartModel.findByIdAndDelete(cartItemId);
    }
 
-   async clearCart(email: string) {
-      const { _id: userId } = await this.userService.findUserByEmail(email);
+   async clearCart(userId : string) {
       return await CartModel.deleteMany({ userId: new Types.ObjectId(userId) });
    }
    async findCartItem(cartItemId: string) {
@@ -103,7 +96,7 @@ export class CartService {
       let totalPrice = 0;
 
       for (const item of cartItems) {
-         totalPrice += item.product.price * item.quantity;
+         totalPrice += item.price * item.quantity;
       }
 
       return totalPrice;

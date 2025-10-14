@@ -15,13 +15,13 @@ export class CreateProductDTO {
    @Expose()
    @IsNumber()
    @IsNotEmpty()
-   quanlity: number;
+   quantity: number;
 
    @Expose()
    @IsNumber()
    @IsNotEmpty()
    price: number;
-
+   imgUrl?: string; // Optional field for image URL
    @Expose()
    @IsString()
    @IsNotEmpty()
@@ -46,7 +46,7 @@ export class Variants {
    @Expose()
    color : string
    @Expose()
-   imgUrl : string
+   imageUrl : string
    @Expose()
    quantity : number
 }

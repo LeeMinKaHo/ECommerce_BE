@@ -28,6 +28,7 @@ export class InvoiceService {
    }
    createInvoice = async (req: InvoiceRequest) => {
       const items = this.buildInvoiceItems(req.items);
+      console.log("Invoice items:", items);
       const totalPrice = this.calculateTotal(req.items);
 
       const paypalOrderId = await this.paypalService.createPayment(
@@ -38,34 +39,31 @@ export class InvoiceService {
       const invoice = await invoiceModel.create({
          userId: req.userId, // user phải đăng nhập
          shippingInfo: {
-            name: req.shippingInfo.name ? "req.shippingInfo.name" : "No name",
-            address: req.shippingInfo.address
-               ? req.shippingInfo.address
-               : "No address",
-            phone: req.shippingInfo.phone ? req.shippingInfo.phone : "No phone",
+            email: req.shippingInfo.email,
+            address: req.shippingInfo.address,
+            phone: req.shippingInfo.phone,
          },
          paypalOrderId,
          totalPrice,
          status: InvoiceStatus.PENDING,
          items,
       });
-
+      console.log("Created invoice:", invoice);
       return invoice;
    };
-   async checkoutCart(email: string) {
-      console.log("Checkout cart for email:", email);
+   async checkoutCart(
+      email: string,
+      shippingInfo: { email: string; address: string; phone: string }
+   ) {
       const user = await this.userService.findUserByEmail(email);
-      console.log("User found:", user);
+
       const cartItems = await this.cartService.getCart(email);
+      console.log("cartItems in checkoutCart : ", cartItems);
       if (cartItems.length === 0) throw Error.CartIsEmpty;
       console.log(cartItems);
       const req: InvoiceRequest = {
          userId: user._id.toString(), // convert luôn cho đồng bộ
-         shippingInfo: {
-            name: "No name",
-            address: "No address",
-            phone: "No phone",
-         },
+         shippingInfo,
          items: cartItems.map((item) => ({
             productId: item.productId.toString(), // convert ObjectId → string
             variantId: item.variantId,
@@ -132,20 +130,19 @@ export class InvoiceService {
       return invoice;
    };
    getInvoice = async (pagination: Pagination) => {
-      const { limit } = pagination;
-
+      const { page, limit } = pagination;
       const invoices = await invoiceModel
          .find()
          .skip(pagination.getOffSet())
          .limit(limit)
-         .lean();
+         .sort({ createdAt: -1 });
 
-      // Với mỗi invoice, truy vấn thêm danh sách item
-      const invoiceIds = invoices.map((inv) => inv._id);
-      const items = await invoiceModel
-         .find({ _id: { $in: invoiceIds } })
-         .select("items")
-         .lean();
+      const total = await invoiceModel.countDocuments();
+      pagination.total = total;
+      return {
+         items: invoices,
+         pagination,
+      };
    };
    findInvoiceByPaypalOrderId = async (paypalOrderId: string) => {
       const invoice = await invoiceModel.findOne({ paypalOrderId });

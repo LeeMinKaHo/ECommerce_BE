@@ -11,7 +11,13 @@ export class InvoiceController {
    async createInvoice(req: AuthRequest, res: Response, next: NextFunction) {
       try {
          const { email } = req.payload;
-         const invoice = await this.invoiceService.checkoutCart(email);
+         const shippingInfo = req.body.shippingInfo;
+         console.log("req body:", req.body);
+         console.log("shippingInfo", shippingInfo);
+         const invoice = await this.invoiceService.checkoutCart(
+            email,
+            shippingInfo
+         );
 
          res.status(200).json({
             success: true,
@@ -36,15 +42,10 @@ export class InvoiceController {
    }
    async getInvoice(req: AuthRequest, res: Response, next: NextFunction) {
       try {
-         res.json(
-            new ResponseCustom(
-               await this.invoiceService.getInvoice(
-                  Pagination.fromRequest(req)
-               ),
-               null,
-               null
-            )
+         const {items , pagination} = await this.invoiceService.getInvoice(
+            Pagination.fromRequest(req)
          );
+         res.json(new ResponseCustom(items, null, pagination));
       } catch (error) {
          next(error);
       }

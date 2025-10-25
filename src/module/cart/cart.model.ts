@@ -3,7 +3,6 @@ import { IProductVariant } from "../product/model/product-variant.model";
 
 export interface ICartItem  extends Document {
     userId: Types.ObjectId; // ID của người dùng
-   
     size : string; // Kích thước của sản phẩm
     color : string; // Màu sắc của sản phẩm
     productId : Types.ObjectId; // ID của sản phẩm

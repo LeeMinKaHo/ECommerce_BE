@@ -17,6 +17,7 @@ import { handleError } from "./module/shared/error/error-custom";
 import { requestLogger } from "./module/shared/middleware/request-log.middleware";
 import { UserRouter } from "./module/user/user.router";
 import uploadRoutes from "./module/upload/upload.route";
+import { ReportRouter } from "./module/report/report.router";
 const app = express();
 const PORT = 4000;
 app.use(express.static(path.join(__dirname, "../public")));
@@ -46,9 +47,10 @@ app.use("/reviews", Container.get(ReviewRouter).getRouter());
 app.use("/carts", cartRouter);
 app.use("/invoices", Container.get(InvoiceRouter).getRouter());
 app.use("/api/upload", uploadRoutes);
+app.use("/admin", Container.get(ReportRouter).getRouter());
 // connect DB
 // handle error
-app.use((err, req, res, next) => {
+app.use((err : any, req : any, res : any, next : any) => {
    handleError(err, res);
 });
 

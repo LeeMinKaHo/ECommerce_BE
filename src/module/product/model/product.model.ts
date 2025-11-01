@@ -25,7 +25,7 @@ const ProductSchema: Schema = new Schema({
    rating : { type: Number, default: 0 },
    totalReview: { type: Number, default: 0 },
    description: { type: String, required: true },
-   imgUrl: { type: String, default: null }, // Thêm trường imgUrl nếu cần
+   defaultImage: { type: String, default: null }, // Thêm trường imgUrl nếu cần
    quantity: { type: Number, required: true, default: 0 },
    quantitySold: { type: Number, required: true, default: 0 },
    price: { type: Number, required: true, min: 0 },

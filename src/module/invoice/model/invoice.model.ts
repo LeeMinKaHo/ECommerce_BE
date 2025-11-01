@@ -54,7 +54,7 @@ const InvoiceSchema = new Schema<IInvoice>(
    {
       userId: { type: String, required: true },
       shippingInfo: {
-         name: { type: String, required: true },
+         email: { type: String, required: true },
          address: { type: String, required: true },
          phone: { type: String, required: true },
       },

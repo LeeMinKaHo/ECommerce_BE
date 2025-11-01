@@ -19,10 +19,10 @@ export class ProductService {
    ) {}
 
    async createProduct(dto: CreateProductDTO, email: string) {
-      console.log("dto", dto);
+    
       const user = await this.userService.isUserActive(email);
       dto.createBy = user._id;
-      dto.imgUrl = dto.variants[0].imageUrl; // Set imgUrl from the first variant
+      dto.defaultImage = dto.variants[0].imageUrl; // Set imgUrl from the first variant
       return this.productRepo.create(dto);
    }
 

@@ -12,7 +12,7 @@ export interface InvoiceRequestItem {
 export interface InvoiceRequest {
    userId: string;
    shippingInfo?: {
-      name: string;
+      email: string;
       address: string;
       phone: string;
    };

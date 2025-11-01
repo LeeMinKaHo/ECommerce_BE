@@ -42,4 +42,4 @@ pids/
 # Debug
 debug.log
 
-.public/
+public/

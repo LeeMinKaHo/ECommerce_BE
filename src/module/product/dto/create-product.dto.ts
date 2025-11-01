@@ -21,7 +21,10 @@ export class CreateProductDTO {
    @IsNumber()
    @IsNotEmpty()
    price: number;
-   imgUrl?: string; // Optional field for image URL
+   @Expose()
+   @IsString()
+   @IsOptional()
+   defaultImage?: string; // Optional field for image URL
    @Expose()
    @IsString()
    @IsNotEmpty()

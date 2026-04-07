@@ -4,6 +4,7 @@ import { AuthRequest } from "../auth/auth.types";
 import { NextFunction, Response } from "express";
 import { Pagination } from "../shared/dto/pagination.dto";
 import { ResponseCustom } from "../shared/response-custom";
+import { InvoiceFilterDTO } from "./dto/filter.dto";
 
 @Service()
 export class InvoiceController {
@@ -42,9 +43,56 @@ export class InvoiceController {
    }
    async getInvoice(req: AuthRequest, res: Response, next: NextFunction) {
       try {
-         const {items , pagination} = await this.invoiceService.getInvoice(
+         const { items, pagination } = await this.invoiceService.getInvoice(
             Pagination.fromRequest(req)
          );
+         res.json(new ResponseCustom(items, null, pagination));
+      } catch (error) {
+         next(error);
+      }
+   }
+   async getInvoiceById(req: AuthRequest, res: Response, next: NextFunction) {
+      try {
+         console.log("req params:", req.params);
+         const invoiceId = req.params.invoiceId;
+         const invoice = await this.invoiceService.findInvoice(invoiceId);
+         res.json(new ResponseCustom(invoice, null, null));
+      } catch (error) {
+         console.log("Error in getInvoiceById:", error);
+         next(error);
+      }
+   }
+   async updateInvoiceStatus(
+      req: AuthRequest,
+      res: Response,
+      next: NextFunction
+   ) {
+      try {
+         console.log("req params:", req.params);
+         const invoiceId = req.params.invoiceId;
+         const { status } = req.body;
+         const updatedInvoice = await this.invoiceService.updateInvoiceStatus(
+            invoiceId,
+            status
+         );
+         res.json(new ResponseCustom(updatedInvoice, null, null));
+      } catch (error) {
+         next(error);
+      }
+   }
+   async getInvoicesByUser(
+      req: AuthRequest,
+      res: Response,
+      next: NextFunction
+   ) {
+      try {
+         const { email } = req.payload;
+         const { items, pagination } =
+            await this.invoiceService.getInvoicesByUser(
+               email,
+               Pagination.fromRequest(req),
+               InvoiceFilterDTO.FromRequest(req)
+            );
          res.json(new ResponseCustom(items, null, pagination));
       } catch (error) {
          next(error);

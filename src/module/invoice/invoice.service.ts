@@ -8,6 +8,7 @@ import invoiceModel, { InvoiceStatus } from "./model/invoice.model";
 import { InvoiceRequest, InvoiceRequestItem } from "./model/invoice.type";
 import { ProductService } from "../product/product.service";
 import { BuyNowDTO } from "./dto/buy-now.dto";
+import { InvoiceFilterDTO } from "./dto/filter.dto";
 @Service()
 export class InvoiceService {
    constructor(
@@ -48,6 +49,7 @@ export class InvoiceService {
          status: InvoiceStatus.PENDING,
          items,
       });
+
       console.log("Created invoice:", invoice);
       return invoice;
    };
@@ -148,5 +150,45 @@ export class InvoiceService {
       const invoice = await invoiceModel.findOne({ paypalOrderId });
       if (!invoice) throw Error.InvoiceNotFound;
       return invoice;
+   };
+   updateInvoiceStatus = async (invoiceId: string, status: InvoiceStatus) => {
+      const invoice = await this.findInvoice(invoiceId);
+      invoice.status = status;
+      await invoice.save();
+      return invoice;
+   };
+   getInvoicesByUser = async (
+      email: string,
+      pagination: Pagination,
+      filter: InvoiceFilterDTO
+   ) => {
+      // 1️⃣ Lấy userId từ email
+      const { _id: userId } = await this.userService.findUserByEmail(email);
+
+      // 2️⃣ Xây điều kiện query động
+      const query: any = { userId };
+
+      if (filter.status) {
+         query.status = filter.status; // ví dụ: 'pending', 'paid', 'cancelled'
+      }
+
+      // 3️⃣ Truy vấn hóa đơn theo userId + filter + phân trang + sắp xếp
+      const invoices = await invoiceModel
+         .find(query)
+         .skip(pagination.getOffSet())
+         .limit(pagination.limit)
+         .sort({ createdAt: -1 });
+
+      // 4️⃣ Đếm tổng hóa đơn (theo cùng điều kiện)
+      const total = await invoiceModel.countDocuments(query);
+
+      // 5️⃣ Gán total vào pagination
+      pagination.total = total;
+
+      // 6️⃣ Trả kết quả
+      return {
+         items: invoices,
+         pagination,
+      };
    };
 }

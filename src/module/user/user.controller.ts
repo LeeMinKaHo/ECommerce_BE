@@ -11,7 +11,7 @@ import { UserService } from "./user.service";
 export class UserController {
    constructor(
       @Inject() private userService: UserService,
-    
+
       @Inject() private queueManager: QueueManager
    ) {}
    createUser = async (req: Request, res: Response, next: NextFunction) => {
@@ -31,7 +31,7 @@ export class UserController {
          const user = await this.userService.login(
             LoginDTO.fromRequest(req.body)
          );
-         
+
          res.json(new ResponseCustom(user, null, null));
       } catch (error) {
          handleErrorValidation(error, next);
@@ -81,5 +81,14 @@ export class UserController {
          next(error);
       }
    };
- 
+   updateUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+      try {
+         const { email } = req.payload;
+         const updateUserDTO = req.body;
+         const data = await this.userService.updateUserProfile(email, updateUserDTO);
+         res.json(new ResponseCustom(data, null, null));
+      } catch (error) {
+         next(error);
+      }
+   };
 }

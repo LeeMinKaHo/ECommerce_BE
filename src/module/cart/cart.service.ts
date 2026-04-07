@@ -1,13 +1,13 @@
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import { Inject, Service } from "typedi";
-import "../product/model/size.model";
 import { ProductService } from "../product/product.service";
 import { UserService } from "../user/user.service";
-import { CartModel } from "./cart.model";
+import { CartRepository } from "./cart.repository";
 import { AddCartDTO } from "./dto/add-cart.dto";
 import { UpdateCartDTO } from "./dto/update-cart.dto";
-import productModel from "../product/model/product.model";
-import { CartRepository } from "./cart.repository";
+import { Error } from "../shared/error/error-custom";
+import { ICartItem } from "./cart.model";
+
 @Service()
 export class CartService {
    constructor(
@@ -15,90 +15,98 @@ export class CartService {
       @Inject() private productService: ProductService,
       @Inject() private cartRepository: CartRepository
    ) {}
+
+   /**
+    * Thêm sản phẩm vào giỏ hàng
+    */
    async addToCart(email: string, createCartDto: AddCartDTO) {
-      const {  productId, quantity , variantId} = createCartDto;
+      const { productId, quantity, variantId } = createCartDto;
 
-      // 1. Tìm user
+      // 1. Lấy User
       const user = await this.userService.findUserByEmail(email);
- 
-      // 2. Kiểm tra variant có tồn tại không
-      const product = await this.productService.getProductAndVariant(productId, variantId);
-      const { _id, name, variant , price } = product;
-      const { color, size, imageUrl } = variant;
-      console.log(product)
-      console.log(price)
-      // 3. Tìm cart item hiện tại (nếu có)
-      const existingCartItem = await CartModel.findOne({
-         userId: user._id,
-         productId: new Types.ObjectId(productId),
-         size,
-         color,
-      });
+      if (!user) throw Error.UserNotFound;
 
-      if (existingCartItem) {
-         // 4. Nếu đã có thì cập nhật quantity
-         existingCartItem.quantity += quantity;
-         await existingCartItem.save();
-      } else {
-         // 5. Nếu chưa có thì tạo mới
-         await CartModel.create({
-            userId: user._id,
+      // 2. Lấy thông tin Product & Variant (Để đảm bảo giá và thông tin luôn mới nhất)
+      const product = await this.productService.getProductAndVariant(productId, variantId);
+      if (!product) throw Error.ProductNotFound;
+
+      const { variant, price, name } = product;
+      const { color, size, imageUrl } = variant;
+
+      // 3. Sử dụng upsert mang tính nguyên tử của Repository
+      await this.cartRepository.upsertCartItem(
+         new Types.ObjectId(user._id),
+         new Types.ObjectId(productId),
+         variantId,
+         {
             name,
             color,
-            imageUrl,
             size,
-            productId: new Types.ObjectId(productId),
-            productVariantId: _id,
+            imageUrl,
             price,
-            quantity,
-            variantId
-         });
-      }
+            quantity
+         }
+      );
+
+      // Trả về số lượng loại sản phẩm trong giỏ hàng để cập nhật Badge ở FE
       return await this.cartRepository.countByUserId(new Types.ObjectId(user._id));
    }
 
+   /**
+    * Lấy danh sách giỏ hàng
+    */
    async getCart(email: string) {
-      const { _id: userId } = await this.userService.findUserByEmail(email);
+      const user = await this.userService.findUserByEmail(email);
+      if (!user) throw Error.UserNotFound;
 
-      const cartItems = await CartModel.find({
-         userId: new Types.ObjectId(userId),
-      });
-      console.log("cart:",cartItems);
-      return cartItems;
+      return await this.cartRepository.findByUserId(new Types.ObjectId(user._id));
    }
 
+   /**
+    * Cập nhật số lượng của một item
+    */
    async updateCartItem(email: string, updateCartDTO: UpdateCartDTO) {
       const { cartItemId, quantity } = updateCartDTO;
 
-      const cartItem = await this.findCartItem(cartItemId);
+      const cartItem = await this.cartRepository.findById(cartItemId);
+      if (!cartItem) throw Error.BadRequest; // Hoặc một lỗi CartItemNotFound tùy biến
 
-      cartItem.quantity = quantity;
-      await cartItem.save();
-      return cartItem;
+      return await this.cartRepository.updateQuantity(cartItemId, quantity);
    }
 
+   /**
+    * Xóa item khỏi giỏ hàng
+    */
    async removeCartItem(email: string, cartItemId: string) {
-      return await CartModel.findByIdAndDelete(cartItemId);
+      return await this.cartRepository.delete(cartItemId);
    }
 
-   async clearCart(userId : string) {
-      return await CartModel.deleteMany({ userId: new Types.ObjectId(userId) });
+   /**
+    * Xóa sạch giỏ hàng (Sau khi thanh toán thành công)
+    */
+   async clearCart(userId: string) {
+      return await this.cartRepository.deleteByUserId(new Types.ObjectId(userId));
    }
-   async findCartItem(cartItemId: string) {
-      const cartItem = await CartModel.findById(cartItemId);
+
+   /**
+    * Lấy tổng tiền giỏ hàng (Sử dụng Aggregation tính toán ở DB layer)
+    */
+   async getTotalPrice(email: string) {
+      const user = await this.userService.findUserByEmail(email);
+      if (!user) throw Error.UserNotFound;
+
+      return await this.cartRepository.calculateTotalPrice(new Types.ObjectId(user._id));
+   }
+
+   /**
+    * Tìm kiếm item trong giỏ hàng (Internal helper)
+    */
+   private async findCartItem(cartItemId: string): Promise<ICartItem> {
+      const cartItem = await this.cartRepository.findById(cartItemId);
       if (!cartItem) {
-         throw new Error("Cart item not found");
+          throw Error.BadRequest;
       }
       return cartItem;
-   }
-   async getTotalPrice(email: string) {
-      const cartItems = await this.getCart(email);
-      let totalPrice = 0;
-
-      for (const item of cartItems) {
-         totalPrice += item.price * item.quantity;
-      }
-
-      return totalPrice;
    }
 }
+

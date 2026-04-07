@@ -18,6 +18,9 @@ import { requestLogger } from "./module/shared/middleware/request-log.middleware
 import { UserRouter } from "./module/user/user.router";
 import uploadRoutes from "./module/upload/upload.route";
 import { ReportRouter } from "./module/report/report.router";
+import { NotificationGateway } from "./module/notification/notification.gateway";
+import { NotificationRouter } from "./module/notification/notification.router";
+
 const app = express();
 const PORT = 4000;
 app.use(express.static(path.join(__dirname, "../public")));
@@ -26,11 +29,14 @@ const server = http.createServer(app);
 const io = new Server(server, {
    cors: {
       origin: "http://localhost:5173", // React FE
-      methods: ["GET", "POST"],
-     
+      methods: ["GET", "POST", "PATCH"],
    },
 });
+
+// ✅ Setup gateways
 setupChatGateway(io);
+const notificationGateway = Container.get(NotificationGateway);
+notificationGateway.setServer(io);
 
 app.use(express.json());
 app.use(requestLogger);
@@ -38,7 +44,7 @@ app.use(requestLogger);
 app.use(
    cors({
       origin: "http://localhost:5173",
-      credentials: true, // nếu bạn cần gửi cookie / auth
+      credentials: true,
    })
 );
 app.use("/users", Container.get(UserRouter).getRouter());
@@ -48,9 +54,10 @@ app.use("/carts", cartRouter);
 app.use("/invoices", Container.get(InvoiceRouter).getRouter());
 app.use("/api/upload", uploadRoutes);
 app.use("/admin", Container.get(ReportRouter).getRouter());
-// connect DB
+app.use("/notifications", Container.get(NotificationRouter).getRouter());
+
 // handle error
-app.use((err : any, req : any, res : any, next : any) => {
+app.use((err: any, req: any, res: any, next: any) => {
    handleError(err, res);
 });
 

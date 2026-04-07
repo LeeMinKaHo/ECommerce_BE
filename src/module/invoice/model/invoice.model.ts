@@ -2,6 +2,8 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 
 export enum InvoiceStatus {
    PENDING = "PENDING",
+   CONFIRMED = "CONFIRMED",
+   SHIPPING = "SHIPPING",
    COMPLETED = "COMPLETED",
    CANCELLED = "CANCELLED",
 }

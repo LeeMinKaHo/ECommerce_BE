@@ -94,8 +94,38 @@ export class ProductService {
 
    // etc...
    async getAllCategory() {
-      // const categories = await categoryModel.find({}).lean()
-      return categoryModel.find({}).lean();
+      const categoriesWithCounts = await categoryModel.aggregate([
+         {
+            $lookup: {
+               from: "products",
+               let: { catId: "$_id" },
+               pipeline: [
+                  { 
+                     $match: { 
+                        $expr: { 
+                           $and: [
+                              { $eq: ["$categoryId", "$$catId"] },
+                              { $eq: ["$isDeleted", false] }
+                           ]
+                        }
+                     }
+                  }
+               ],
+               as: "categoryProducts"
+            }
+         },
+         {
+            $addFields: {
+               totalProduct: { $size: "$categoryProducts" }
+            }
+         },
+         {
+            $project: {
+               categoryProducts: 0
+            }
+         }
+      ]);
+      return categoriesWithCounts;
    }
    // async getProductAndVariant(productId: string, size: string, color: string) {
    //    const product = await this.productRepo.findDetail(productId); // lấy cả populate category

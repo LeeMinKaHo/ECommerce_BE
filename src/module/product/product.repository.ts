@@ -9,7 +9,7 @@ import { ProductWithVariant } from "./product.type";
 @Service()
 export class ProductRepository {
    async findByIdOrFail(productId: string) {
-      const product = productModel.findById(productId);
+      const product = await productModel.findById(productId);
       if (!product) throw Error.ProductNotFound;
       return product;
    }

@@ -20,6 +20,7 @@ import uploadRoutes from "./module/upload/upload.route";
 import { ReportRouter } from "./module/report/report.router";
 import { NotificationGateway } from "./module/notification/notification.gateway";
 import { NotificationRouter } from "./module/notification/notification.router";
+import wishlistRouter from "./module/wishlist/wishlist.router";
 
 const app = express();
 const PORT = 4000;
@@ -55,6 +56,7 @@ app.use("/invoices", Container.get(InvoiceRouter).getRouter());
 app.use("/api/upload", uploadRoutes);
 app.use("/admin", Container.get(ReportRouter).getRouter());
 app.use("/notifications", Container.get(NotificationRouter).getRouter());
+app.use("/wishlist", wishlistRouter);
 
 // handle error
 app.use((err: any, req: any, res: any, next: any) => {

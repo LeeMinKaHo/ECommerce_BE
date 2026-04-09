@@ -6,22 +6,38 @@ import { userRole } from "../user/user.types";
 
 @Service()
 export class ReportRouter {
-   private router;
+   private router: Router;
+
    constructor(
-     @Inject() private reportController: ReportController,
-     @Inject() private authMiddleware: AuthorizeMiddleware
+      @Inject() private reportController: ReportController,
+      @Inject() private authMiddleware: AuthorizeMiddleware
    ) {
       this.router = Router();
       this.initalizeRouter();
    }
-   initalizeRouter() {
+
+   private initalizeRouter() {
+      const auth = this.authMiddleware.authorize;
+      const admin = this.authMiddleware.authorizeRoles(userRole.Admin);
+      const ctrl = this.reportController;
+
+      // Overview stats (counts)
       this.router.get(
-         "/reports",
-         this.authMiddleware.authorize,
-         this.authMiddleware.authorizeRoles(userRole.Admin),
-         this.reportController.overview.bind(this.reportController)
+         "/reports/overview",
+         auth,
+         admin,
+         ctrl.overview.bind(ctrl)
+      );
+
+      // Revenue time-series stats (for charts)
+      this.router.get(
+        "/reports/revenue",
+        auth,
+        admin,
+        ctrl.getRevenueStats.bind(ctrl)
       );
    }
+
    getRouter() {
       return this.router;
    }

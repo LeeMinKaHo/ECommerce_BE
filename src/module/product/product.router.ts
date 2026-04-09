@@ -28,8 +28,15 @@ export class ProductRouter {
          this.productController.getAllSizes.bind(this.productController)
       );
       this.router.get("/:productId", this.productController.getProduct.bind(this.productController))
+      this.router.get("/similar/:productId", this.productController.getSimilarProducts.bind(this.productController))
       this.router.delete(
          "/:productId",this.productController.deleteProduct.bind(this.productController)
+      );
+      this.router.put(
+         "/:productId",
+         this.authMiddleware.authorize,
+         this.authMiddleware.authorizeRoles(userRole.Admin),
+         this.productController.updateProduct.bind(this.productController)
       );
       
    }

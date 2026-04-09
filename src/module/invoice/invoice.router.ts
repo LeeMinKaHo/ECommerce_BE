@@ -1,55 +1,52 @@
-import { Router } from "express";
-import { Inject, Service } from "typedi";
+import { Router } from 'express';
+import { Inject, Service } from 'typedi';
+import { AuthorizeMiddleware } from '../auth/auth.middleware';
+import { InvoiceController } from './invoice.controller';
 
-import { AuthorizeMiddleware } from "../auth/auth.middleware";
-import { InvoiceController } from "./invoice.controller";
 @Service()
 export class InvoiceRouter {
-   private router;
-   constructor(
-      @Inject() private invoiceController: InvoiceController,
-      @Inject() private authMiddleware: AuthorizeMiddleware
-   ) {
-      this.router = Router();
-      this.initalizeRouter();
-   }
-   initalizeRouter() {
-      // ✅ Route GET ALL phải đứng TRƯỚC
-      this.router.get(
-         "/",
-         this.invoiceController.getInvoice.bind(this.invoiceController)
-      );
+  private router: Router;
 
-      // ✅ Route GET ONE đứng SAU
-      this.router.get(
-         "/:invoiceId",
-         this.invoiceController.getInvoiceById.bind(this.invoiceController)
-      );
-      this.router.get(
-         "/user/me",
-         this.authMiddleware.authorize,
-         this.invoiceController.getInvoicesByUser.bind(this.invoiceController)
-      );
-      this.router.post(
-         "/",
-         this.authMiddleware.authorize,
-         this.invoiceController.createInvoice.bind(this.invoiceController)
-      );
+  constructor(
+    @Inject() private invoiceController: InvoiceController,
+    @Inject() private authMiddleware: AuthorizeMiddleware
+  ) {
+    this.router = Router();
+    this.initializeRouter();
+  }
 
-      this.router.post(
-         "/capture/:paypalOrderId",
-         this.authMiddleware.authorize,
-         this.invoiceController.captureInvoice.bind(this.invoiceController)
-      );
-      this.router.put(
-         "/:invoiceId",
-         this.authMiddleware.authorize,
-         this.invoiceController.updateInvoiceStatus.bind(this.invoiceController)
-      );
-     
-   }
+  private initializeRouter() {
+    const ctrl = this.invoiceController;
+    const auth = this.authMiddleware.authorize;
 
-   getRouter() {
-      return this.router;
-   }
+    // ✅ Static routes PHẢI đứng TRƯỚC dynamic routes (/:param)
+    // để tránh bị Express khớp nhầm
+
+    // Admin: Lấy tất cả hóa đơn
+    this.router.get('/', auth, ctrl.getInvoice.bind(ctrl));
+
+    // User: Lấy hóa đơn của chính mình
+    // ⚠️ /user/me phải TRƯỚC /:invoiceId
+    this.router.get('/user/me', auth, ctrl.getInvoicesByUser.bind(ctrl));
+
+    // Lấy hóa đơn theo ID
+    this.router.get('/:invoiceId', ctrl.getInvoiceById.bind(ctrl));
+
+    // Tạo hóa đơn từ giỏ hàng
+    this.router.post('/', auth, ctrl.createInvoice.bind(ctrl));
+
+    // Capture thanh toán PayPal
+    this.router.post(
+      '/capture/:paypalOrderId',
+      auth,
+      ctrl.captureInvoice.bind(ctrl)
+    );
+
+    // Admin: Cập nhật trạng thái hóa đơn
+    this.router.put('/:invoiceId', auth, ctrl.updateInvoiceStatus.bind(ctrl));
+  }
+
+  getRouter() {
+    return this.router;
+  }
 }

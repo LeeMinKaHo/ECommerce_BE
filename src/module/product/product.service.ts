@@ -10,38 +10,92 @@ import { ProductRepository } from "./product.repository";
 import sizeModel from "./model/size.model";
 import { UserService } from "../user/user.service";
 import { Types } from "mongoose";
+import { RedisService } from "../redis/redis.service";
 
 @Service()
 export class ProductService {
    constructor(
       @Inject() private productRepo: ProductRepository,
-      @Inject() private userService: UserService
+      @Inject() private userService: UserService,
+      @Inject() private redisService: RedisService
    ) {}
 
+    private readonly CATEGORY_CACHE_KEY = "categories:all";
+    private readonly PRODUCT_CACHE_PREFIX = "products:list:";
+    private readonly PRODUCT_DETAIL_PREFIX = "products:detail:";
+
+   async clearProductCache() {
+      await this.redisService.deleteKey(this.CATEGORY_CACHE_KEY);
+      await this.redisService.deleteByPrefix(this.PRODUCT_CACHE_PREFIX);
+   }
+
    async createProduct(dto: CreateProductDTO, email: string) {
-    
       const user = await this.userService.isUserActive(email);
       dto.createBy = user._id;
-      dto.defaultImage = dto.variants[0].imageUrl; // Set imgUrl from the first variant
-      return this.productRepo.create(dto);
+      dto.defaultImage = dto.variants[0].imageUrl; 
+      const product = await this.productRepo.create(dto);
+      
+      // Xóa cache
+      await this.clearProductCache();
+      return product;
    }
 
    async getProductDetail(id: string) {
+      const cacheKey = `${this.PRODUCT_DETAIL_PREFIX}${id}`;
+      
+      // 1. Kiểm tra cache
+      const cached = await this.redisService.getObject<any>(cacheKey);
+      if (cached) {
+         console.log("🚀 Get Product Detail from Redis Cache:", id);
+         return cached;
+      }
+
+      console.log("🐢 Get Product Detail from Database:", id);
       const product = await this.productRepo.findDetail(id);
       if (!product) throw Error.ProductNotFound;
 
       const getUniqueValues = <T>(arr: T[]) => [...new Set(arr)];
       const colors = getUniqueValues(product.variants.map((v) => v.color));
       const sizes = getUniqueValues(product.variants.map((v) => v.size));
-      return { product, colors, sizes };
+      
+      const result = { product, colors, sizes };
+
+      // 2. Lưu vào Redis (TTL: 30 minutes = 1800s)
+      await this.redisService.setObject(cacheKey, result, 1800);
+
+      return result;
    }
    async deleteProduct(productId: string) {
       const product = await this.productRepo.findByIdOrFail(productId);
       if (!product) throw Error.ProductNotFound;
       if (product.isDeleted) throw Error.ProductAlreadyDeleted;
-      return this.productRepo.softDelete(productId);
+      const res = await this.productRepo.softDelete(productId);
+      
+      // Xóa cache
+      await this.clearProductCache();
+      await this.redisService.deleteKey(`${this.PRODUCT_DETAIL_PREFIX}${productId}`);
+      return res;
+   }
+   async updateProduct(productId: string, dto: any) {
+      const product = await this.productRepo.findByIdOrFail(productId);
+      if (!product) throw Error.ProductNotFound;
+      const res = await this.productRepo.update(productId, dto);
+      
+      // Xóa cache
+      await this.clearProductCache();
+      await this.redisService.deleteKey(`${this.PRODUCT_DETAIL_PREFIX}${productId}`);
+      return res;
    }
    async getAllProduct(pagination: Pagination, findOption: FindOptionDTO) {
+      // 1. Tạo cache key dựa trên tham số query
+      const cacheKey = `${this.PRODUCT_CACHE_PREFIX}${pagination.page}:${pagination.limit}:${JSON.stringify(findOption)}`;
+      
+      const cached = await this.redisService.getObject<any>(cacheKey);
+      if (cached) {
+         console.log("🚀 Get Products from Redis Cache:", cacheKey);
+         return cached;
+      }
+
       console.log("findOption", findOption);
       const { categoryId, minPrice, maxPrice, sort, name } = findOption;
       console.log("sort", sort);
@@ -84,16 +138,29 @@ export class ProductService {
       );
       pagination.total = await this.productRepo.count(filter);
 
-      return {
+      const result = {
          products: products.map((product) => {
             return ProductResDTO.fromEntity(product);
          }),
          pagination,
       };
+
+      // 2. Lưu vào Redis (TTL: 10 minutes cho list)
+      await this.redisService.setObject(cacheKey, result, 600);
+
+      return result;
    }
 
    // etc...
    async getAllCategory() {
+      // 1. Kiểm tra trong Redis trước
+      const cached = await this.redisService.getObject<any[]>(this.CATEGORY_CACHE_KEY);
+      if (cached) {
+         console.log("🚀 Get Categories from Redis Cache");
+         return cached;
+      }
+
+      console.log("🐢 Get Categories from Database (Heavl Lift)");
       const categoriesWithCounts = await categoryModel.aggregate([
          {
             $lookup: {
@@ -125,6 +192,10 @@ export class ProductService {
             }
          }
       ]);
+
+      // 2. Lưu vào Redis (TTL: 1 hour = 3600s)
+      await this.redisService.setObject(this.CATEGORY_CACHE_KEY, categoriesWithCounts, 3600);
+
       return categoriesWithCounts;
    }
    // async getProductAndVariant(productId: string, size: string, color: string) {
@@ -153,5 +224,15 @@ export class ProductService {
    }
    async getProductAndVariant(productId: string, variantId: string) {
       return this.productRepo.getProductWithVariant(new Types.ObjectId(productId), new Types.ObjectId(variantId));
+   }
+
+   async getSimilarProducts(productId: string) {
+      const product = await this.productRepo.findByIdOrFail(productId);
+      const similarProducts = await this.productRepo.findSimilar(
+         product.categoryId.toString(),
+         productId
+      );
+
+      return similarProducts.map((p) => ProductResDTO.fromEntity(p));
    }
 }

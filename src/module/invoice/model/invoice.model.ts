@@ -40,9 +40,9 @@ const InvoiceItemSchema = new Schema<InvoiceItem>(
    { _id: false } // không tạo _id riêng cho từng item
 );
 export interface IInvoice extends Document {
-   userId: string; // user phải đăng nhập
+   userId: string;
    shippingInfo: {
-      name: string;
+      email: string;
       address: string;
       phone: string;
    };

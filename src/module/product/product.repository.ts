@@ -44,6 +44,10 @@ export class ProductRepository {
       return productModel.findByIdAndUpdate(productId, { isDeleted: true });
    }
 
+   async update(productId: string, dto: any) {
+      return productModel.findByIdAndUpdate(productId, { $set: dto }, { new: true });
+   }
+
    async checkVariantExists(variantId: string) {
       const product = await productModel.findOne(
          { "variants._id": variantId },
@@ -84,4 +88,15 @@ export class ProductRepository {
 
       return result[0] ?? null;
    };
+
+   async findSimilar(categoryId: string, excludeProductId: string, limit: number = 4) {
+      return productModel
+         .find({
+            categoryId,
+            _id: { $ne: new Types.ObjectId(excludeProductId) },
+            isDeleted: false,
+         })
+         .limit(limit)
+         .populate("categoryId");
+   }
 }

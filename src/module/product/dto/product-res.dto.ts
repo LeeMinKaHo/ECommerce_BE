@@ -25,6 +25,9 @@ export class ProductResDTO {
    @Expose()
    quantitySold: number;
 
+   @Expose()
+   variants: any[];
+
    static fromEntity(data: IProduct) {
       const plainData = data.toObject();
       return plainToInstance(

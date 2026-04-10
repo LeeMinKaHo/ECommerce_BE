@@ -33,6 +33,22 @@ export class RedisService {
    async flushAll(): Promise<void> {
       await this.redis.flushall();
    }
+
+   async deleteByPrefix(prefix: string): Promise<void> {
+      const stream = this.redis.scanStream({
+         match: `${prefix}*`,
+      });
+
+      stream.on("data", (keys: string[]) => {
+         if (keys.length > 0) {
+            this.redis.del(...keys);
+         }
+      });
+
+      return new Promise((resolve) => {
+         stream.on("end", () => resolve());
+      });
+   }
    async setObject<T>(key: string, value: T, seconds?: number) {
       const stringValue = JSON.stringify(value);
       return await this.setKey(key, stringValue, seconds);

@@ -11,6 +11,7 @@ export interface IReview {
    invoiceId: Types.ObjectId | IInvoice;
    delete: boolean;
    userId: Types.ObjectId | IUser;
+   likes: Types.ObjectId[];  // Danh sách userId đã like
 }
 
 const reviewSchema = new Schema<IReview>(
@@ -25,6 +26,7 @@ const reviewSchema = new Schema<IReview>(
       },
       delete: { type: Boolean, default: false },
       userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+      likes: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
       invoiceId: {
          type: Schema.Types.ObjectId,
          ref: "Invoice",

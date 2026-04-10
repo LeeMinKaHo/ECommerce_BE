@@ -9,7 +9,7 @@ import { ProductWithVariant } from "./product.type";
 @Service()
 export class ProductRepository {
    async findByIdOrFail(productId: string) {
-      const product = productModel.findById(productId);
+      const product = await productModel.findById(productId);
       if (!product) throw Error.ProductNotFound;
       return product;
    }
@@ -42,6 +42,10 @@ export class ProductRepository {
 
    async softDelete(productId: string) {
       return productModel.findByIdAndUpdate(productId, { isDeleted: true });
+   }
+
+   async update(productId: string, dto: any) {
+      return productModel.findByIdAndUpdate(productId, { $set: dto }, { new: true });
    }
 
    async checkVariantExists(variantId: string) {
@@ -84,4 +88,15 @@ export class ProductRepository {
 
       return result[0] ?? null;
    };
+
+   async findSimilar(categoryId: string, excludeProductId: string, limit: number = 4) {
+      return productModel
+         .find({
+            categoryId,
+            _id: { $ne: new Types.ObjectId(excludeProductId) },
+            isDeleted: false,
+         })
+         .limit(limit)
+         .populate("categoryId");
+   }
 }

@@ -65,4 +65,24 @@ export class ProductController {
          next(error);
       }
    }
+
+   async getSimilarProducts(req: Request, res: Response, next: NextFunction) {
+      try {
+         const { productId } = req.params;
+         const products = await this.productService.getSimilarProducts(productId);
+         res.json(new ResponseCustom(products, null, null));
+      } catch (error) {
+         next(error);
+      }
+   }
+
+   async updateProduct(req: AuthRequest, res: Response, next: NextFunction) {
+      try {
+         const { productId } = req.params;
+         const data = await this.productService.updateProduct(productId, req.body);
+         res.json(new ResponseCustom(data, null, null));
+      } catch (error) {
+         next(error);
+      }
+   }
 }

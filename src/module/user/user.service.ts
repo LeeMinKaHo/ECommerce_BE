@@ -22,8 +22,7 @@ import { CartService } from "../cart/cart.service";
 export class UserService {
    constructor(
       @Inject() private authService: AuthService,
-      @Inject() private queueManager: QueueManager,
-    
+      @Inject() private queueManager: QueueManager
    ) {}
    async createUser(createUser: CreateUserDTO) {
       let userId: string;
@@ -98,10 +97,10 @@ export class UserService {
       return user; // Giả sử isActive là một field trong schema
    }
    private async generateLoginResponse(user: any) {
-      const { email , role } = user;
+      const { email, role } = user;
       const { access, refresh } = await this.authService.handleAuthToken({
          email,
-         role
+         role,
       });
       console.log("access", access);
       console.log("refresh", refresh);
@@ -129,19 +128,19 @@ export class UserService {
    async changePassword(changePassworDTO: ChangePassworDTO) {
       const { email, password, newPassword } = changePassworDTO;
       const user = await this.findUserByEmail(email);
-      const {  password : userPass, role} = user
+      const { password: userPass, role } = user;
       const checkPassword = await comparePassword(password, userPass);
       if (!checkPassword) throw Error.IncorrectPass;
       user.password = await hashPassword(password);
       user.save();
       await this.authService.invalidateToken(email);
-      await this.authService.handleAuthToken({ email , role });
+      await this.authService.handleAuthToken({ email, role });
    }
    async getUserIdByEmail(email: string): Promise<IUser> {
-         const user = await userModel.findOne({ email });
-         if (!user)   throw Error.UserNotFound;
-         return user.toObject();
-      }
+      const user = await userModel.findOne({ email });
+      if (!user) throw Error.UserNotFound;
+      return user.toObject();
+   }
    // async getUserAdvance(email: string  ) {
    //    const user = await this.findUserByEmail(email);
    //    const cartCount = await this.cartService.getCartLength(email);
@@ -150,4 +149,18 @@ export class UserService {
    //       cartCount,
    //    }
    // }
+   async updateUserProfile(email: string, updateData: Partial<IUser>) {
+      const disallowedFields = [
+         "password",
+         "role",
+         "isDeleted",
+         "isBanned",
+         "isActive",
+      ];
+      disallowedFields.forEach((f) => delete updateData[f]);
+      const user = await this.findUserByEmail(email);
+      Object.assign(user, updateData);
+      await user.save();
+      return user;
+   }
 }

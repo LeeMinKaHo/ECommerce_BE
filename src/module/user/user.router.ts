@@ -42,6 +42,11 @@ export class UserRouter {
          this.authMiddleware.authorizeRefreshToken,
          this.userController.refreshToken.bind(this.userController)
       );
+      this.router.put(
+         "/profile",
+         this.authMiddleware.authorize,
+         this.userController.updateUser.bind(this.userController)
+      );
    }
    public getRouter(): Router {
       return this.router;

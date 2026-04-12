@@ -38,7 +38,12 @@ export class ProductRouter {
          this.authMiddleware.authorizeRoles(userRole.Admin),
          this.productController.updateProduct.bind(this.productController)
       );
-      
+      this.router.post(
+         "/sync-ai",
+         this.authMiddleware.authorize,
+         this.authMiddleware.authorizeRoles(userRole.Admin),
+         this.productController.syncEmbeddings.bind(this.productController)
+      );
    }
    getRouter() {
       return this.router;

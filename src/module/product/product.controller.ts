@@ -85,4 +85,13 @@ export class ProductController {
          next(error);
       }
    }
+
+   async syncEmbeddings(req: Request, res: Response, next: NextFunction) {
+      try {
+         const data = await this.productService.syncEmbeddings();
+         res.json(new ResponseCustom(data, null, null));
+      } catch (error) {
+         next(error);
+      }
+   }
 }

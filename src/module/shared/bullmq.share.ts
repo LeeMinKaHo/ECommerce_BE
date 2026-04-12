@@ -1,6 +1,8 @@
 export const queueName = {
-    email:"emailQueue"
+    email: "emailQueue",
+    ai: "aiQueue",
 }
 export const jobName = {
-    sendMail:"sendEmail"
+    sendMail: "sendEmail",
+    generateEmbedding: "generateEmbedding",
 } as const

@@ -48,35 +48,57 @@ export class ProductRepository {
       return productModel.findByIdAndUpdate(productId, { $set: dto }, { new: true });
    }
 
-   async checkVariantExists(variantId: string) {
+   async checkVariantExists(sizeId: string) {
+      // Tìm sản phẩm chứa sizeId bên trong colorVariants.sizes
       const product = await productModel.findOne(
-         { "variants._id": variantId },
-         { "variants.$": 1 } // chỉ lấy đúng variant có _id khớp
+         { "colorVariants.sizes._id": new Types.ObjectId(sizeId) },
+         { "colorVariants.$": 1 }
       );
 
-      if (!product || !product.variants || product.variants.length === 0) {
+      if (!product || !product.colorVariants || product.colorVariants.length === 0) {
          throw Error.ProductVariantNotFound;
       }
 
-      return product.variants[0];
+      // Tìm size cụ thể trong màu đó
+      const colorVar = product.colorVariants[0];
+      const sizeEntry = colorVar.sizes.find(s => s._id?.toString() === sizeId);
+      
+      if (!sizeEntry) throw Error.ProductVariantNotFound;
+
+      return { colorVar, sizeEntry };
    }
    getProductWithVariant = async (
       productId: Types.ObjectId,
-      variantId: Types.ObjectId
+      sizeId: Types.ObjectId
    ): Promise<ProductWithVariant | null> => {
-      const result = await productModel.aggregate<ProductWithVariant>([
-         { $match: { _id: productId, "variants._id": variantId } },
+      const result = await productModel.aggregate<any>([
+         { $match: { _id: productId, "colorVariants.sizes._id": sizeId } },
          {
             $project: {
                name: 1,
                categoryName: 1,
                price: 1,
-               variant: {
+               colorVariant: {
                   $arrayElemAt: [
                      {
                         $filter: {
-                           input: "$variants",
-                           cond: { $eq: ["$$this._id", variantId] },
+                           input: "$colorVariants",
+                           cond: { $in: [sizeId, "$$this.sizes._id"] },
+                        },
+                     },
+                     0,
+                  ],
+               },
+            },
+         },
+         {
+            $addFields: {
+               sizeEntry: {
+                  $arrayElemAt: [
+                     {
+                        $filter: {
+                           input: "$colorVariant.sizes",
+                           cond: { $eq: ["$$this._id", sizeId] },
                         },
                      },
                      0,

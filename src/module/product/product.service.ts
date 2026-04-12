@@ -11,13 +11,18 @@ import sizeModel from "./model/size.model";
 import { UserService } from "../user/user.service";
 import { Types } from "mongoose";
 import { RedisService } from "../redis/redis.service";
+import { QueueManager } from "../bullmq/queue-manager";
+import { queueName, jobName } from "../shared/bullmq.share";
+import { RecommendationService } from "./recommendation.service";
 
 @Service()
 export class ProductService {
    constructor(
       @Inject() private productRepo: ProductRepository,
       @Inject() private userService: UserService,
-      @Inject() private redisService: RedisService
+      @Inject() private redisService: RedisService,
+      @Inject() private queueManager: QueueManager,
+      @Inject() private recommendationService: RecommendationService
    ) {}
 
     private readonly CATEGORY_CACHE_KEY = "categories:all";
@@ -32,11 +37,18 @@ export class ProductService {
    async createProduct(dto: CreateProductDTO, email: string) {
       const user = await this.userService.isUserActive(email);
       dto.createBy = user._id;
-      dto.defaultImage = dto.variants[0].imageUrl; 
+      // defaultImage = ảnh đầu tiên của colorVariant đầu tiên
+      dto.defaultImage = dto.colorVariants[0]?.imageUrls[0];
       const product = await this.productRepo.create(dto);
       
       // Xóa cache
       await this.clearProductCache();
+
+      // Thêm job AI để tạo embedding
+      await this.queueManager.addJob(queueName.ai, jobName.generateEmbedding, {
+         productId: product._id,
+      });
+
       return product;
    }
 
@@ -54,9 +66,11 @@ export class ProductService {
       const product = await this.productRepo.findDetail(id);
       if (!product) throw Error.ProductNotFound;
 
-      const getUniqueValues = <T>(arr: T[]) => [...new Set(arr)];
-      const colors = getUniqueValues(product.variants.map((v) => v.color));
-      const sizes = getUniqueValues(product.variants.map((v) => v.size));
+      // Lấy danh sách màu và size duy nhất từ colorVariants
+      const colors = product.colorVariants.map((cv) => cv.color);
+      const sizes = [...new Set(
+         product.colorVariants.flatMap((cv) => cv.sizes.map((s) => s.size))
+      )];
       
       const result = { product, colors, sizes };
 
@@ -84,6 +98,12 @@ export class ProductService {
       // Xóa cache
       await this.clearProductCache();
       await this.redisService.deleteKey(`${this.PRODUCT_DETAIL_PREFIX}${productId}`);
+
+      // Thêm job AI để cập nhật embedding
+      await this.queueManager.addJob(queueName.ai, jobName.generateEmbedding, {
+         productId: productId,
+      });
+
       return res;
    }
    async getAllProduct(pagination: Pagination, findOption: FindOptionDTO) {
@@ -228,11 +248,45 @@ export class ProductService {
 
    async getSimilarProducts(productId: string) {
       const product = await this.productRepo.findByIdOrFail(productId);
-      const similarProducts = await this.productRepo.findSimilar(
-         product.categoryId.toString(),
-         productId
+      
+      // Nếu sản phẩm chưa có embedding, chạy job tạo embedding và trả về theo category như cũ (fallback)
+      if (!product.embedding || product.embedding.length === 0) {
+         console.log("⚠️ Product has no embedding, falling back to category and triggering AI job");
+         await this.queueManager.addJob(queueName.ai, jobName.generateEmbedding, { productId });
+         
+         const similarProducts = await this.productRepo.findSimilar(
+            product.categoryId.toString(),
+            productId
+         );
+         return similarProducts.map((p) => ProductResDTO.fromEntity(p));
+      }
+
+      // Lấy danh sách tất cả sản phẩm (có thể lọc theo category nếu muốn nhanh hơn, 
+      // nhưng AI cho phép tìm xuyên category)
+      const allProducts = await productModel.find({ 
+         _id: { $ne: product._id }, 
+         isDeleted: false 
+      }).populate("categoryId");
+
+      const topSimilar = this.recommendationService.findTopSimilar(
+         product.embedding,
+         allProducts,
+         4
       );
 
-      return similarProducts.map((p) => ProductResDTO.fromEntity(p));
+      return topSimilar.map((p) => ProductResDTO.fromEntity(p));
+   }
+
+   async syncEmbeddings() {
+      const products = await productModel.find({ isDeleted: false });
+      console.log(`🚀 Syncing embeddings for ${products.length} products...`);
+      
+      for (const product of products) {
+         await this.queueManager.addJob(queueName.ai, jobName.generateEmbedding, {
+            productId: product._id,
+         });
+      }
+      
+      return { message: `Queued ${products.length} products for embedding generation` };
    }
 }

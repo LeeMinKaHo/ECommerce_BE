@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 import { ICategory } from "./category.model";
-import productVariantModel, { IProductVariant } from "./product-variant.model";
+import colorVariantModel, { IColorVariant } from "./product-variant.model";
 import reviewModel, { IReview } from "../../reviews/review.model";
 
 export interface IProduct extends Document {
@@ -15,9 +15,10 @@ export interface IProduct extends Document {
    createBy: mongoose.Types.ObjectId;
    categoryId: ICategory; // 👈 Thêm dòng này
    categoryName : string;
-   variants: IProductVariant[]; // Thêm trường variants
-   reviews: IReview[]; // Thêm trường reviews
+   colorVariants: IColorVariant[]; // Nhóm theo màu
+   reviews: IReview[];
    isDeleted: boolean;
+   embedding?: number[];
 }
 
 const ProductSchema: Schema = new Schema({
@@ -39,9 +40,10 @@ const ProductSchema: Schema = new Schema({
       ref: "Category", // 👈 Đây là tên model ông muốn populate
       required: true,
    },
-   variants: [productVariantModel.schema], // Thêm trường variants
-   reviews: [reviewModel.schema], // Thêm trường reviews
+   colorVariants: [colorVariantModel.schema], // Nhóm theo màu
+   reviews: [reviewModel.schema],
    isDeleted: { type: Boolean, default: false },
+   embedding: { type: [Number], default: [] },
 });
 
 export default mongoose.model<IProduct>("Product", ProductSchema);

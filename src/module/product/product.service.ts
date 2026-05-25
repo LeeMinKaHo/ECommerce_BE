@@ -117,7 +117,7 @@ export class ProductService {
       }
 
       console.log("findOption", findOption);
-      const { categoryId, minPrice, maxPrice, sort, name } = findOption;
+      const { categoryId, minPrice, maxPrice, sort, name, minRating, inStock } = findOption;
       console.log("sort", sort);
 
       const filter: any = { isDeleted: false }; // Đưa isDeleted vào filter luôn
@@ -132,6 +132,12 @@ export class ProductService {
          filter.price = {};
          if (minPrice) filter.price.$gte = minPrice;
          if (maxPrice) filter.price.$lte = maxPrice;
+      }
+      if (minRating) {
+         filter.rating = { $gte: Number(minRating) };
+      }
+      if (inStock === true || inStock === 'true') {
+         filter.quantity = { $gt: 0 };
       }
 
       let sortOption: any = null;

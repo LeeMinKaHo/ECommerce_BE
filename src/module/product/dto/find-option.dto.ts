@@ -1,4 +1,4 @@
-import { Expose, plainToInstance, Type } from "class-transformer";
+import { Expose, plainToInstance, Type, Transform } from "class-transformer";
 import { IsEnum, IsNotEmpty, IsNumber, IsOptional } from "class-validator";
 import { Request } from "express";
 export enum SortOption {
@@ -31,6 +31,18 @@ export class FindOptionDTO {
    @IsOptional()
    @Expose()
    name: string;
+
+   @IsNumber()
+   @Type(() => Number)
+   @IsOptional()
+   @Expose()
+   minRating: number;
+
+   @IsOptional()
+   @Transform(({ value }) => value === 'true' || value === true)
+   @Expose()
+   inStock: boolean;
+
    static fromRequest(req: Request) {
     
       return plainToInstance(FindOptionDTO, req.query, {

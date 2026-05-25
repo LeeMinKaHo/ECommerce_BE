@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { Inject, Service } from "typedi";
 import { AuthRequest } from "../auth/auth.types";
-import { Pagination } from "../shared/dto/pagination.dto";
+import { Pagination } from "../shared/http/pagination.dto";
 import { ResponseCustom } from "../shared/response-custom";
 import { CreateProductDTO } from "./dto/create-product.dto";
 import { ProductService } from "./product.service";

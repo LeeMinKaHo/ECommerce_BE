@@ -1,15 +1,15 @@
-import { Schema, model, Types , Document } from "mongoose";
-import { IProductVariant } from "../product/model/product-variant.model";
+import { Schema, model, Types, Document } from "mongoose";
 
-export interface ICartItem  extends Document {
+
+export interface ICartItem extends Document {
     userId: Types.ObjectId; // ID của người dùng
-    size : string; // Kích thước của sản phẩm
-    color : string; // Màu sắc của sản phẩm
-    productId : Types.ObjectId; // ID của sản phẩm
-    variantId:string; // ID của biến thể sản phẩm
-    name : string; // Tên của sản phẩm
-    imageUrl : string ;
-    price : number; // Giá của sản phẩm
+    size: string; // Kích thước của sản phẩm
+    color: string; // Màu sắc của sản phẩm
+    productId: Types.ObjectId; // ID của sản phẩm
+    variantId: string; // ID của biến thể sản phẩm
+    name: string; // Tên của sản phẩm
+    imageUrl: string;
+    price: number; // Giá của sản phẩm
     quantity: number; // Số lượng sản phẩm trong giỏ hàng
 }
 

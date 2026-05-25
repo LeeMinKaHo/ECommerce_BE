@@ -25,7 +25,7 @@ export class ProductResDTO {
    @Expose()
    quantitySold: number;
 
-   @Expose()
+   @Expose({ name: 'colorVariants' })
    variants: any[];
 
    static fromEntity(data: IProduct) {

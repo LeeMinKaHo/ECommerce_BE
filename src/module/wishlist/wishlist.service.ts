@@ -1,7 +1,7 @@
 import { Inject, Service } from "typedi";
 import { WishlistRepository } from "./wishlist.repository";
 import { ProductRepository } from "../product/product.repository";
-import { Error } from "../shared/error/error-custom";
+import { Error } from "../shared/errors/error-custom";
 import { UserService } from "../user/user.service";
 
 @Service()

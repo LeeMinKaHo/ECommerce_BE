@@ -1,9 +1,9 @@
 import Container from "typedi";
 import { Worker } from "bullmq";
-import { connectionRedis } from "../../shared/database/connnection";
+import { connectionRedis } from "../../shared/database/mongodb";
 import { EmailService } from "../../mail/mail.service";
 import { EmailDTO } from "../../mail/dto/email.dto";
-import { queueName } from "../../shared/bullmq.share";
+import { queueName } from "../../shared/queue/bullmq.share";
 
 const emailService = Container.get(EmailService);
 

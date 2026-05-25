@@ -1,8 +1,8 @@
 import { Inject, Service } from 'typedi';
 import { CartService } from '../cart/cart.service';
 import { PayPalService } from '../paypal/paypal.service';
-import { Pagination } from '../shared/dto/pagination.dto';
-import { Error } from '../shared/error/error-custom';
+import { Pagination } from '../shared/http/pagination.dto';
+import { Error } from '../shared/errors/error-custom';
 import { UserService } from '../user/user.service';
 import invoiceModel, { InvoiceStatus } from './model/invoice.model';
 import { InvoiceRequest, InvoiceRequestItem } from './model/invoice.type';
@@ -18,7 +18,7 @@ export class InvoiceService {
     @Inject() private cartService: CartService,
     @Inject() private userService: UserService,
     @Inject() private productService: ProductService
-  ) {}
+  ) { }
 
   // ─── Private Helpers ─────────────────────────────────────────────────────────
 
@@ -101,8 +101,10 @@ export class InvoiceService {
       productId,
       variantId
     );
-    const { variant, name, price } = product;
-    const { color, size, imageUrl } = variant;
+    const { colorVariant, sizeEntry, name, price } = product;
+    const { color, imageUrls } = colorVariant;
+    const { size } = sizeEntry;
+    const imageUrl = imageUrls[0] ?? "";
 
     const req: InvoiceRequest = {
       userId: user._id.toString(),
@@ -110,7 +112,7 @@ export class InvoiceService {
       items: [
         {
           productId,
-          variantId: variant._id.toString(),
+          variantId: sizeEntry._id.toString(),
           name,
           size,
           color,
@@ -145,7 +147,7 @@ export class InvoiceService {
       status: invoice.status,
     });
 
-    return result;
+    return invoice;
   }
 
   // ─── Queries ──────────────────────────────────────────────────────────────────

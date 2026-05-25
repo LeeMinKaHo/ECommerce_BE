@@ -1,8 +1,8 @@
 import { Service } from "typedi";
-import { Pagination } from "../shared/dto/pagination.dto";
+import { Pagination } from "../shared/http/pagination.dto";
 import { CreateProductDTO } from "./dto/create-product.dto";
 import productModel from "./model/product.model";
-import { Error } from "../shared/error/error-custom";
+import { Error } from "../shared/errors/error-custom";
 import { Mongoose, Types } from "mongoose";
 import { ProductWithVariant } from "./product.type";
 

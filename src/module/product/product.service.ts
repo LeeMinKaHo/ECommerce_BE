@@ -1,6 +1,6 @@
 import { Inject, Service } from "typedi";
-import { Pagination } from "../shared/dto/pagination.dto";
-import { Error } from "../shared/error/error-custom";
+import { Pagination } from "../shared/http/pagination.dto";
+import { Error } from "../shared/errors/error-custom";
 import { CreateProductDTO } from "./dto/create-product.dto";
 import { FindOptionDTO, SortOption } from "./dto/find-option.dto";
 import { ProductResDTO } from "./dto/product-res.dto";
@@ -12,7 +12,7 @@ import { UserService } from "../user/user.service";
 import { Types } from "mongoose";
 import { RedisService } from "../redis/redis.service";
 import { QueueManager } from "../bullmq/queue-manager";
-import { queueName, jobName } from "../shared/bullmq.share";
+import { queueName, jobName } from "../shared/queue/bullmq.share";
 import { RecommendationService } from "./recommendation.service";
 
 @Service()

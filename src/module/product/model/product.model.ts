@@ -6,6 +6,7 @@ import reviewModel, { IReview } from "../../reviews/review.model";
 export interface IProduct extends Document {
    name: string;
    description: string;
+   details?: string[]; // Bullet points for Product Information section
    defaultImage?: string; // Thêm trường imgUrl nếu cần
    quantity: number;
    quantitySold: number;
@@ -26,6 +27,7 @@ const ProductSchema: Schema = new Schema({
    rating : { type: Number, default: 0 },
    totalReview: { type: Number, default: 0 },
    description: { type: String, required: true },
+   details: { type: [String], default: [] }, // Bullet points for Product Information section
    defaultImage: { type: String, default: null }, // Thêm trường imgUrl nếu cần
    quantity: { type: Number, required: true, default: 0 },
    quantitySold: { type: Number, required: true, default: 0 },

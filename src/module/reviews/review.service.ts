@@ -3,7 +3,7 @@ import { CreateReviewDTO } from "./dtos/create-review.dto";
 import reviewModel from "./review.model";
 import { IUser } from "../user/model/user.model";
 import { InvoiceService } from "../invoice/invoice.service";
-import { Error } from "../shared/error/error-custom";
+import { Error } from "../shared/errors/error-custom";
 import mongoose from "mongoose";
 import { UserService } from "../user/user.service";
 import { NotificationService } from "../notification/notification.service";

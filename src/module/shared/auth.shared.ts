@@ -1,8 +1,9 @@
 import { PayLoad } from "../auth/auth.types";
 
 export const timeExpire = {
-   accessToken: 100000,
-   refreshToken: 30000,
+   // seconds
+   accessToken: 60 * 15, // 15 minutes
+   refreshToken: 60 * 60 * 24 * 30, // 30 days
    verifyCode: 300,
 };
 export const Keys = {
@@ -11,6 +12,9 @@ export const Keys = {
    },
    refreshToken(userId: string) {
       return `refresh_token:${userId}`;
+   },
+   refreshJti(userId: string) {
+      return `refresh_jti:${userId}`;
    },
    verificationCode(userId: string) {
       return `verify:${userId}`;

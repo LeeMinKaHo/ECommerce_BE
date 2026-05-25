@@ -2,10 +2,10 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import { Inject, Service } from "typedi";
 import { PayLoad } from "./auth.types";
 import { Config } from "../shared/config";
-import { CodeGenerator } from "../shared/utils";
 import { RedisService } from "../redis/redis.service";
 import { timeExpire, Keys } from "../shared/auth.shared";
-import { AuthRes } from "./dto/auth-res.dto";
+import crypto from "crypto";
+import { sha256Base64Url } from "../shared/utils/token-hash";
 
 @Service()
 export class AuthService {
@@ -21,8 +21,12 @@ export class AuthService {
    // gen -> generate
    async genAndCacheAccess(payload: PayLoad) {
       const { email } = payload;
-      const access = jwt.sign({ ...payload }, this.config.accessTokenSecret, {
+      const jti = crypto.randomUUID();
+      const access = jwt.sign({ ...payload, jti }, this.config.accessTokenSecret, {
          expiresIn: timeExpire.accessToken,
+         issuer: "e-commerce",
+         audience: "web",
+         subject: email,
       });
       await this.redisService.setKey(
          Keys.accessToken(email),
@@ -33,12 +37,28 @@ export class AuthService {
    }
    async genAndCacheRefresh(payload: PayLoad) {
       const { email } = payload;
-      const refresh = jwt.sign({ ...payload }, this.config.refreshTokenSecret, {
-         expiresIn: timeExpire.refreshToken,
-      });
+      const jti = crypto.randomUUID();
+      const refresh = jwt.sign(
+         { ...payload, jti, tokenType: "refresh" },
+         this.config.refreshTokenSecret,
+         {
+            expiresIn: timeExpire.refreshToken,
+            issuer: "e-commerce",
+            audience: "web",
+            subject: email,
+         }
+      );
+
+      // Store only a hash of refresh token in Redis
+      const refreshHash = sha256Base64Url(refresh);
       await this.redisService.setKey(
          Keys.refreshToken(email),
-         refresh,
+         refreshHash,
+         timeExpire.refreshToken
+      );
+      await this.redisService.setKey(
+         Keys.refreshJti(email),
+         jti,
          timeExpire.refreshToken
       );
       return refresh;
@@ -59,7 +79,7 @@ export class AuthService {
          this.config.accessTokenSecret
       ) as JwtPayload;
 
-      return new PayLoad(decoded.email, decoded.role);
+      return new PayLoad(decoded.email, decoded.role, decoded.jti);
    }
 
    verifyRefreshToken(token: string): PayLoad {
@@ -67,7 +87,10 @@ export class AuthService {
          token,
          this.config.refreshTokenSecret
       ) as JwtPayload;
-      return new PayLoad(decoded.email, decoded.role);
+      if (decoded.tokenType !== "refresh") {
+         throw new Error("Invalid refresh token");
+      }
+      return new PayLoad(decoded.email, decoded.role, decoded.jti);
    }
    async genAndCacheCode(userId: string): Promise<string> {
       const code = Math.floor(1000 + Math.random() * 9000).toString(); // Gen 4 số

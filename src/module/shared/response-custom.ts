@@ -1,13 +1,2 @@
-import { ErrorCustom } from "./error/error-custom";
+export { ResponseCustom } from "./http/response-custom";
 
-
-export class ResponseCustom {
-   data: any;
-   error?: ErrorCustom;
-   pagination?: any;
-   constructor(data: any, error: ErrorCustom, pagination: any) {
-      this.data = data;
-      this.error = error;
-      this.pagination = pagination;
-   }
-}

@@ -12,8 +12,8 @@ export class RecommendationService {
     constructor() {
         const apiKey = process.env.GEMINI_API_KEY || "";
         this.genAI = new GoogleGenerativeAI(apiKey);
-        // Sử dụng model text-embedding-004 là model mới nhất và tối ưu cho embedding
-        this.model = this.genAI.getGenerativeModel({ model: "text-embedding-004" });
+        // Sử dụng model embedding-001 để đảm bảo tính ổn định và khả dụng cao nhất
+        this.model = this.genAI.getGenerativeModel({ model: "embedding-001" });
     }
 
     /**
@@ -22,7 +22,7 @@ export class RecommendationService {
     async getEmbedding(text: string): Promise<number[]> {
         try {
             if (!text || text.trim() === "") return [];
-            
+
             const result = await this.model.embedContent(text);
             const embedding = result.embedding;
             return embedding.values;

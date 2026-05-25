@@ -2,33 +2,37 @@ import mongoose from "mongoose";
 import { Inject, Service } from "typedi";
 import { AuthService } from "../auth/auth.service";
 import { QueueManager } from "../bullmq/queue-manager";
-import { jobName, queueName } from "../shared/bullmq.share";
-import { Error } from "../shared/error/error-custom";
+import { jobName, queueName } from "../shared/queue/bullmq.share";
+import { Error } from "../shared/errors/error-custom";
 import {
    comparePassword,
    hashPassword,
    initTransaction,
-} from "../shared/utils";
+} from "../shared/utils/helper";
 import { ChangePassworDTO } from "./dtos/change-password.dto";
 import { CreateUserDTO } from "./dtos/create-user.dto";
 import { LoginRes } from "./dtos/login-res.dto";
 import { LoginDTO } from "./dtos/login.dto";
 import { LogoutDTO } from "./dtos/logout.dto";
 import userAdvanceModel from "./model/user-advance.model";
-import userModel, { IUser } from "./model/user.model";
+import { IUser } from "./model/user.model";
 import { userActive } from "./user.types";
 import { CartService } from "../cart/cart.service";
+import { UserRepository } from "./user.repository";
 @Service()
 export class UserService {
    constructor(
       @Inject() private authService: AuthService,
-      @Inject() private queueManager: QueueManager
+      @Inject() private queueManager: QueueManager,
+      @Inject() private userRepo: UserRepository
    ) {}
    async createUser(createUser: CreateUserDTO) {
       let userId: string;
       await initTransaction(async (session) => {
          createUser.password = await hashPassword(createUser.password);
 
+         // keep direct mongoose usage for create (transaction/session)
+         const userModel = (await import("./model/user.model")).default;
          const user = new userModel(createUser);
 
          await user.save({ session }); // Đảm bảo lưu trong transaction
@@ -47,15 +51,14 @@ export class UserService {
       return await this.findUser(new mongoose.Types.ObjectId(userId));
    }
    async findUser(userId: mongoose.Types.ObjectId): Promise<IUser> {
-      console.log("UserId", userId);
-      const user = await userModel.findById(userId);
+      const user = await this.userRepo.findById(userId.toString());
       if (!user) {
          throw Error.UserNotFound;
       }
       return user;
    }
    async findUserByEmail(email: string) {
-      const user = await userModel.findOne({ email });
+      const user = await this.userRepo.findByEmail(email);
       if (!user) {
          throw Error.UserNotFound;
       }
@@ -82,11 +85,7 @@ export class UserService {
    async verifyCode(email: string, code: string) {
       const user = await this.findUserByEmail(email);
       if (user.isActive == userActive.active) throw Error.UserAlreadyActive;
-      console.log(user);
-      await userModel.updateOne(
-         { _id: user.id },
-         { $set: { isActive: userActive.active } }
-      );
+      await this.userRepo.updateById(user.id, { isActive: userActive.active });
 
       return true;
    }
@@ -102,15 +101,16 @@ export class UserService {
          email,
          role,
       });
-      console.log("access", access);
-      console.log("refresh", refresh);
       // Gửi email thông báo đăng nhập thành công
-      return LoginRes.fromLoginRes({ user, access, refresh });
+      return {
+         response: LoginRes.fromLoginRes({ user, access }),
+         refreshToken: refresh,
+      };
    }
    async login(loginDTO: LoginDTO) {
-      console.log("loginDTO", loginDTO);
       const { email, password } = loginDTO;
-      const user = (await this.isUserActive(email)).toObject();
+      const userDoc = await this.isUserActive(email);
+      const user = userDoc.toObject();
       const checkPassword = await comparePassword(password, user.password);
       if (!checkPassword) throw Error.IncorrectPass;
       return this.generateLoginResponse(user);
@@ -131,13 +131,13 @@ export class UserService {
       const { password: userPass, role } = user;
       const checkPassword = await comparePassword(password, userPass);
       if (!checkPassword) throw Error.IncorrectPass;
-      user.password = await hashPassword(password);
-      user.save();
+      user.password = await hashPassword(newPassword);
+      await user.save();
       await this.authService.invalidateToken(email);
       await this.authService.handleAuthToken({ email, role });
    }
    async getUserIdByEmail(email: string): Promise<IUser> {
-      const user = await userModel.findOne({ email });
+      const user = await this.userRepo.findByEmail(email);
       if (!user) throw Error.UserNotFound;
       return user.toObject();
    }

@@ -1,6 +1,6 @@
 import { Queue } from "bullmq";
-import { queueName } from "../shared/bullmq.share";
-import { connectionRedis } from "../shared/database/connnection";
+import { queueName } from "../shared/queue/bullmq.share";
+import { connectionRedis } from "../shared/database/mongodb";
 import { Service } from "typedi";
 import { createBullBoard } from "bull-board";
 import { BullMQAdapter } from "bull-board/bullMQAdapter";

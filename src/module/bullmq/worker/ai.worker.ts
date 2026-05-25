@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import Container from "typedi";
-import { connectionRedis } from "../../shared/database/connnection";
-import { queueName } from "../../shared/bullmq.share";
+import { connectionRedis } from "../../shared/database/mongodb";
+import { queueName } from "../../shared/queue/bullmq.share";
 import productModel from "../../product/model/product.model";
 import { RecommendationService } from "../../product/recommendation.service";
 

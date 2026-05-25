@@ -2,11 +2,12 @@ import { NextFunction, Request, Response } from "express";
 import { Inject, Service } from "typedi";
 import { AuthRequest } from "../auth/auth.types";
 import { QueueManager } from "../bullmq/queue-manager";
-import { handleErrorValidation } from "../shared/error/handle-validation-response";
+import { handleErrorValidation } from "../shared/errors/handle-validation-response";
 import { ResponseCustom } from "../shared/response-custom";
 import { CreateUserDTO } from "./dtos/create-user.dto";
 import { LoginDTO } from "./dtos/login.dto";
 import { UserService } from "./user.service";
+import { Error } from "../shared/errors/error-custom";
 @Service()
 export class UserController {
    constructor(
@@ -27,18 +28,38 @@ export class UserController {
    };
    login = async (req: Request, res: Response, next: NextFunction) => {
       try {
-         console.log("req.body", req.body);
-         const user = await this.userService.login(
+         const { response, refreshToken } = await this.userService.login(
             LoginDTO.fromRequest(req.body)
          );
 
-         res.json(new ResponseCustom(user, null, null));
+         const isProd = process.env.NODE_ENV === "production";
+         res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
+            path: "/users/refresh",
+            maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+         });
+
+         res.json(new ResponseCustom(response, null, null));
       } catch (error) {
          handleErrorValidation(error, next);
       }
    };
    logout = async (req: AuthRequest, res: Response, next: NextFunction) => {
       try {
+         // Optional: invalidate cached tokens for this user if authenticated
+         if (req.payload?.email) {
+            await this.userService.logout({ email: req.payload.email } as any);
+         }
+
+         const isProd = process.env.NODE_ENV === "production";
+         res.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
+            path: "/users/refresh",
+         });
          res.json(new ResponseCustom(true, null, null));
       } catch (error) {
          handleErrorValidation(error, next);
@@ -73,10 +94,28 @@ export class UserController {
       res: Response,
       next: NextFunction
    ) => {
-      const { email } = req.payload;
       try {
-         const data = await this.userService.refreshToken(email);
-         res.json(new ResponseCustom(data, null, null));
+         const refreshToken = (req as any).cookies?.refreshToken;
+         if (!refreshToken || typeof refreshToken !== "string") {
+            return next(Error.refreshTokenInvalid);
+         }
+
+         // authorizeRefreshToken middleware already validated cookie token,
+         // and set req.payload from the refresh token.
+         const { email } = req.payload;
+         const { response, refreshToken: newRefreshToken } =
+            await this.userService.refreshToken(email);
+
+         const isProd = process.env.NODE_ENV === "production";
+         res.cookie("refreshToken", newRefreshToken, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
+            path: "/users/refresh",
+            maxAge: 1000 * 60 * 60 * 24 * 30,
+         });
+
+         res.json(new ResponseCustom(response, null, null));
       } catch (error) {
          next(error);
       }

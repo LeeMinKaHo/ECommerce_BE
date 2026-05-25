@@ -5,7 +5,7 @@ import { UserService } from "../user/user.service";
 import { CartRepository } from "./cart.repository";
 import { AddCartDTO } from "./dto/add-cart.dto";
 import { UpdateCartDTO } from "./dto/update-cart.dto";
-import { Error } from "../shared/error/error-custom";
+import { Error } from "../shared/errors/error-custom";
 import { ICartItem } from "./cart.model";
 
 @Service()
@@ -14,7 +14,7 @@ export class CartService {
       @Inject() private userService: UserService,
       @Inject() private productService: ProductService,
       @Inject() private cartRepository: CartRepository
-   ) {}
+   ) { }
 
    /**
     * Thêm sản phẩm vào giỏ hàng
@@ -30,8 +30,10 @@ export class CartService {
       const product = await this.productService.getProductAndVariant(productId, variantId);
       if (!product) throw Error.ProductNotFound;
 
-      const { variant, price, name } = product;
-      const { color, size, imageUrl } = variant;
+      const { colorVariant, sizeEntry, price, name } = product;
+      const { color, imageUrls } = colorVariant;
+      const { size } = sizeEntry;
+      const imageUrl = imageUrls[0] ?? "";
 
       // 3. Sử dụng upsert mang tính nguyên tử của Repository
       await this.cartRepository.upsertCartItem(
@@ -104,7 +106,7 @@ export class CartService {
    private async findCartItem(cartItemId: string): Promise<ICartItem> {
       const cartItem = await this.cartRepository.findById(cartItemId);
       if (!cartItem) {
-          throw Error.BadRequest;
+         throw Error.BadRequest;
       }
       return cartItem;
    }

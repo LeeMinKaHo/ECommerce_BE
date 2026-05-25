@@ -14,22 +14,22 @@ export class ErrorCustom {
 }
 export const Error = {
    IncorrectPass: new ErrorCustom("IncorrectPassword", "Incorrect password"),
-   BadRequest: new ErrorCustom("BadRequest", "Bad Request", 500),
+   BadRequest: new ErrorCustom("BadRequest", "Bad Request", 400),
    ServerError: new ErrorCustom("ServerError", "Server Error", 500),
    UserNotFound: new ErrorCustom("UserNotFound", "User Not Found"),
-   UnAuthorize: new ErrorCustom("UnAuthorize", "UnAuthorize", 403),
+   UnAuthorize: new ErrorCustom("UnAuthorize", "Unauthorized", 401),
    accessTokenInvalid: new ErrorCustom(
       "AccessTokenInvalid",
       "AccessToken Invalid",
-      500
+      401
    ),
    refreshTokenInvalid: new ErrorCustom(
       "RefreshTokenInvalid",
       "RefreshToken Invalid",
-      500
+      401
    ),
    CodeNotValid: new ErrorCustom("CodeNotValid", "Code not valid"),
-   UserNotActive: new ErrorCustom("UserNotActive", "User not active", 500),
+   UserNotActive: new ErrorCustom("UserNotActive", "User not active", 403),
    UserAlreadyActive: new ErrorCustom(
       "UserAlreadyActivce",
       "User already active"

@@ -65,6 +65,12 @@ export class CreateProductDTO {
 
    @Expose()
    @IsArray()
+   @IsString({ each: true })
+   @IsOptional()
+   details?: string[];
+
+   @Expose()
+   @IsArray()
    @ValidateNested({ each: true })
    @Type(() => ColorVariantDTO)
    colorVariants: ColorVariantDTO[];

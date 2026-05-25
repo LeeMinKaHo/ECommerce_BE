@@ -1,5 +1,5 @@
 import { Service } from "typedi";
-import { Error } from "../shared/error/error-custom";
+import { Error } from "../shared/errors/error-custom";
 import userModel from "./model/user.model";
 
 @Service()

@@ -2,7 +2,7 @@ import { Inject, Service } from 'typedi';
 import { InvoiceService } from './invoice.service';
 import { AuthRequest } from '../auth/auth.types';
 import { NextFunction, Response } from 'express';
-import { Pagination } from '../shared/dto/pagination.dto';
+import { Pagination } from '../shared/http/pagination.dto';
 import { ResponseCustom } from '../shared/response-custom';
 import { InvoiceFilterDTO } from './dto/filter.dto';
 

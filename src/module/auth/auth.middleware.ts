@@ -5,9 +5,9 @@ import { AuthService } from "./auth.service";
 import { Inject, Service } from "typedi";
 import { Keys } from "../shared/auth.shared";
 import { AuthRequest, PayLoad } from "./auth.types";
-import { RefreshTokenDTO } from "./dto/refresh.dto";
-import { Error } from "../shared/error/error-custom";
+import { Error } from "../shared/errors/error-custom";
 import { userRole } from "../user/user.types";
+import { sha256Base64Url } from "../shared/utils/token-hash";
 @Service()
 export class AuthorizeMiddleware {
    constructor(
@@ -47,9 +47,12 @@ export class AuthorizeMiddleware {
       next: NextFunction
    ) => {
       try {
-         const accessDTO = RefreshTokenDTO.fromRequest(req.body);
-         await validateOrReject(accessDTO);
-         const { refreshToken } = accessDTO;
+         const refreshToken =
+            (req as any).cookies?.refreshToken ??
+            (req.headers["x-refresh-token"] as string | undefined);
+         if (!refreshToken || typeof refreshToken !== "string") {
+            return next(Error.refreshTokenInvalid);
+         }
 
          const payload: PayLoad =
             this.authService.verifyRefreshToken(refreshToken);
@@ -58,18 +61,28 @@ export class AuthorizeMiddleware {
          const refreshTokenCache = await this.redisService.getKey(
             Keys.refreshToken(payload.email)
          );
+         const refreshJtiCache = await this.redisService.getKey(
+            Keys.refreshJti(payload.email)
+         );
 
          // Nếu muốn kiểm tra user tồn tại:
          // const user = await this.userService.findByEmail(payload.email);
          // if (!user) return next(Error.refreshTokenInvalid);
 
-         if (!refreshTokenCache || refreshToken !== refreshTokenCache) {
+         const refreshHash = sha256Base64Url(refreshToken);
+         if (
+            !refreshTokenCache ||
+            refreshHash !== refreshTokenCache ||
+            !refreshJtiCache ||
+            !payload.jti ||
+            refreshJtiCache !== payload.jti
+         ) {
             return next(Error.refreshTokenInvalid);
          }
 
          return next();
       } catch (error) {
-         next(error);
+         next(Error.refreshTokenInvalid);
       }
    };
 

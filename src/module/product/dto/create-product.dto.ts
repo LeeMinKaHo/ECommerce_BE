@@ -1,5 +1,5 @@
 import { Expose, plainToInstance } from "class-transformer";
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 // Sub-DTO: mỗi size bên trong 1 màu
@@ -31,6 +31,71 @@ export class ColorVariantDTO {
    @ValidateNested({ each: true })
    @Type(() => SizeEntryDTO)
    sizes: SizeEntryDTO[];
+}
+
+// Sub-DTO: 1 row trong bảng size guide
+export class SizeGuideRowDTO {
+   @Expose()
+   @IsString()
+   @IsNotEmpty()
+   size: string;
+
+   @Expose()
+   @IsString()
+   @IsOptional()
+   chest?: string;
+
+   @Expose()
+   @IsString()
+   @IsOptional()
+   waist?: string;
+
+   @Expose()
+   @IsString()
+   @IsOptional()
+   hip?: string;
+
+   @Expose()
+   @IsString()
+   @IsOptional()
+   length?: string;
+
+   @Expose()
+   @IsString()
+   @IsOptional()
+   shoulder?: string;
+
+   @Expose()
+   @IsString()
+   @IsOptional()
+   sleeve?: string;
+
+   @Expose()
+   @IsString()
+   @IsOptional()
+   thigh?: string;
+
+   @Expose()
+   @IsString()
+   @IsOptional()
+   width?: string;
+}
+
+// Sub-DTO: toàn bộ size guide
+export class SizeGuideDTO {
+   @Expose()
+   @IsIn(['tops', 'bottoms', 'accessories', 'custom'])
+   type: 'tops' | 'bottoms' | 'accessories' | 'custom';
+
+   @Expose()
+   @IsIn(['cm', 'inch'])
+   unit: 'cm' | 'inch';
+
+   @Expose()
+   @IsArray()
+   @ValidateNested({ each: true })
+   @Type(() => SizeGuideRowDTO)
+   rows: SizeGuideRowDTO[];
 }
 
 export class CreateProductDTO {
@@ -68,6 +133,12 @@ export class CreateProductDTO {
    @IsString({ each: true })
    @IsOptional()
    details?: string[];
+
+   @Expose()
+   @IsOptional()
+   @ValidateNested()
+   @Type(() => SizeGuideDTO)
+   sizeGuide?: SizeGuideDTO;
 
    @Expose()
    @IsArray()

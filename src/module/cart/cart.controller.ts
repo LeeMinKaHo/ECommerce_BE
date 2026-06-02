@@ -5,6 +5,8 @@ import { CartService } from "./cart.service";
 import { ResponseCustom } from "../shared/response-custom";
 import { AddCartDTO } from "./dto/add-cart.dto";
 import { CartResDTO } from "./dto/cart-res.dto";
+import { UpdateCartDTO } from "./dto/update-cart.dto";
+
 @Service()
 export class CartController {
    constructor(@Inject() private cartService: CartService) {}
@@ -25,6 +27,20 @@ export class CartController {
       try {
          const { email } = req.payload;
          const data = await this.cartService.getCart(email);
+         res.status(200).json(new ResponseCustom(data, null, null));
+      } catch (error) {
+         next(error);
+      }
+   }
+   async updateCartItem(req: AuthRequest, res: Response, next: NextFunction) {
+      try {
+         const { email } = req.payload;
+         const cartItemId = req.params.cartId;
+         const { quantity } = req.body;
+         const data = await this.cartService.updateCartItem(
+            email,
+            UpdateCartDTO.fromRequest({ cartItemId, quantity })
+         );
          res.status(200).json(new ResponseCustom(data, null, null));
       } catch (error) {
          next(error);

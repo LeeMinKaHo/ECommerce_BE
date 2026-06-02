@@ -146,6 +146,10 @@ export class CreateProductDTO {
    @Type(() => ColorVariantDTO)
    colorVariants: ColorVariantDTO[];
 
+   @Expose()
+   @IsOptional()
+   isActive?: boolean;
+
    static fromRequest(data: any) {
       return plainToInstance(CreateProductDTO, data, {
          excludeExtraneousValues: true,

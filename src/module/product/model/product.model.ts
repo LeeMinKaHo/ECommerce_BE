@@ -24,9 +24,10 @@ export interface ISizeGuide {
 export interface IProduct extends Document {
    name: string;
    description: string;
-   details?: string[]; // Bullet points for Product Information section
-   sizeGuide?: ISizeGuide; // Size chart for customer reference
+   details?: string[];
+   sizeGuide?: ISizeGuide;
    defaultImage?: string;
+   videoUrl?: string;       // catwalk / outfit video
    quantity: number;
    quantitySold: number;
    price: number;
@@ -38,6 +39,7 @@ export interface IProduct extends Document {
    colorVariants: IColorVariant[];
    reviews: IReview[];
    isDeleted: boolean;
+   isActive: boolean;
    embedding?: number[];
 }
 
@@ -73,6 +75,7 @@ const ProductSchema: Schema = new Schema({
    details: { type: [String], default: [] },
    sizeGuide: { type: SizeGuideSchema, default: null },
    defaultImage: { type: String, default: null },
+   videoUrl: { type: String, default: null },      // catwalk / outfit video
    quantity: { type: Number, required: true, default: 0 },
    quantitySold: { type: Number, required: true, default: 0 },
    price: { type: Number, required: true, min: 0 },
@@ -83,13 +86,14 @@ const ProductSchema: Schema = new Schema({
    },
    categoryId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Category", // 👈 Đây là tên model ông muốn populate
+      ref: "Category",
       required: true,
    },
-   colorVariants: [colorVariantModel.schema], // Nhóm theo màu
+   colorVariants: [colorVariantModel.schema],
    reviews: [reviewModel.schema],
    isDeleted: { type: Boolean, default: false },
+   isActive: { type: Boolean, default: true },
    embedding: { type: [Number], default: [] },
-});
+}, { timestamps: true }); // auto createdAt & updatedAt
 
 export default mongoose.model<IProduct>("Product", ProductSchema);

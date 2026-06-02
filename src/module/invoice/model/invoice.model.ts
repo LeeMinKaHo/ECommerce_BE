@@ -60,7 +60,7 @@ const InvoiceSchema = new Schema<IInvoice>(
          address: { type: String, required: true },
          phone: { type: String, required: true },
       },
-      paypalOrderId: { type: String, required: true },
+      paypalOrderId: { type: String, required: true, unique: true }, // ✅ unique → chống capture 2 lần
       totalPrice: { type: Number, required: true },
       status: {
          type: String,
@@ -71,5 +71,9 @@ const InvoiceSchema = new Schema<IInvoice>(
    },
    { timestamps: true }
 );
+
+// ✅ Index cho truy vấn nhanh theo userId
+InvoiceSchema.index({ userId: 1 });
+InvoiceSchema.index({ userId: 1, status: 1 });
 
 export default mongoose.model<IInvoice>("Invoice", InvoiceSchema);

@@ -23,11 +23,11 @@ export class ProductService {
       @Inject() private redisService: RedisService,
       @Inject() private queueManager: QueueManager,
       @Inject() private recommendationService: RecommendationService
-   ) {}
+   ) { }
 
-    private readonly CATEGORY_CACHE_KEY = "categories:all";
-    private readonly PRODUCT_CACHE_PREFIX = "products:list:";
-    private readonly PRODUCT_DETAIL_PREFIX = "products:detail:";
+   private readonly CATEGORY_CACHE_KEY = "categories:all";
+   private readonly PRODUCT_CACHE_PREFIX = "products:list:";
+   private readonly PRODUCT_DETAIL_PREFIX = "products:detail:";
 
    async clearProductCache() {
       await this.redisService.deleteKey(this.CATEGORY_CACHE_KEY);
@@ -40,7 +40,7 @@ export class ProductService {
       // defaultImage = ảnh đầu tiên của colorVariant đầu tiên
       dto.defaultImage = dto.colorVariants[0]?.imageUrls[0];
       const product = await this.productRepo.create(dto);
-      
+
       // Xóa cache
       await this.clearProductCache();
 
@@ -54,7 +54,7 @@ export class ProductService {
 
    async getProductDetail(id: string) {
       const cacheKey = `${this.PRODUCT_DETAIL_PREFIX}${id}`;
-      
+
       // 1. Kiểm tra cache
       const cached = await this.redisService.getObject<any>(cacheKey);
       if (cached) {
@@ -71,7 +71,7 @@ export class ProductService {
       const sizes = [...new Set(
          product.colorVariants.flatMap((cv) => cv.sizes.map((s) => s.size))
       )];
-      
+
       const result = { product, colors, sizes };
 
       // 2. Lưu vào Redis (TTL: 30 minutes = 1800s)
@@ -84,7 +84,7 @@ export class ProductService {
       if (!product) throw Error.ProductNotFound;
       if (product.isDeleted) throw Error.ProductAlreadyDeleted;
       const res = await this.productRepo.softDelete(productId);
-      
+
       // Xóa cache
       await this.clearProductCache();
       await this.redisService.deleteKey(`${this.PRODUCT_DETAIL_PREFIX}${productId}`);
@@ -94,7 +94,7 @@ export class ProductService {
       const product = await this.productRepo.findByIdOrFail(productId);
       if (!product) throw Error.ProductNotFound;
       const res = await this.productRepo.update(productId, dto);
-      
+
       // Xóa cache
       await this.clearProductCache();
       await this.redisService.deleteKey(`${this.PRODUCT_DETAIL_PREFIX}${productId}`);
@@ -109,7 +109,7 @@ export class ProductService {
    async getAllProduct(pagination: Pagination, findOption: FindOptionDTO) {
       // 1. Tạo cache key dựa trên tham số query
       const cacheKey = `${this.PRODUCT_CACHE_PREFIX}${pagination.page}:${pagination.limit}:${JSON.stringify(findOption)}`;
-      
+
       const cached = await this.redisService.getObject<any>(cacheKey);
       if (cached) {
          console.log("🚀 Get Products from Redis Cache:", cacheKey);
@@ -120,7 +120,7 @@ export class ProductService {
       const { categoryId, minPrice, maxPrice, sort, name, minRating, inStock } = findOption;
       console.log("sort", sort);
 
-      const filter: any = { isDeleted: false }; // Đưa isDeleted vào filter luôn
+      const filter: any = { isDeleted: false, isActive: true }; // Chỉ trả về sản phẩm đang active
 
       if (categoryId) {
          filter.categoryId = categoryId;
@@ -136,13 +136,16 @@ export class ProductService {
       if (minRating) {
          filter.rating = { $gte: Number(minRating) };
       }
-      if (inStock === true || inStock === 'true') {
+      if (inStock) {
          filter.quantity = { $gt: 0 };
       }
 
       let sortOption: any = null;
 
       switch (sort) {
+         case SortOption.Latest:
+            sortOption = { _id: -1 };
+            break;
          case SortOption.Price_Asc:
             sortOption = { price: 1 };
             break;
@@ -154,6 +157,9 @@ export class ProductService {
             break;
          case SortOption.Rating_Desc:
             sortOption = { rating: -1 };
+            break;
+         default:
+            sortOption = { _id: -1 };
             break;
       }
 
@@ -193,9 +199,9 @@ export class ProductService {
                from: "products",
                let: { catId: "$_id" },
                pipeline: [
-                  { 
-                     $match: { 
-                        $expr: { 
+                  {
+                     $match: {
+                        $expr: {
                            $and: [
                               { $eq: ["$categoryId", "$$catId"] },
                               { $eq: ["$isDeleted", false] }
@@ -254,12 +260,12 @@ export class ProductService {
 
    async getSimilarProducts(productId: string) {
       const product = await this.productRepo.findByIdOrFail(productId);
-      
+
       // Nếu sản phẩm chưa có embedding, chạy job tạo embedding và trả về theo category như cũ (fallback)
       if (!product.embedding || product.embedding.length === 0) {
          console.log("⚠️ Product has no embedding, falling back to category and triggering AI job");
          await this.queueManager.addJob(queueName.ai, jobName.generateEmbedding, { productId });
-         
+
          const similarProducts = await this.productRepo.findSimilar(
             product.categoryId.toString(),
             productId
@@ -269,9 +275,9 @@ export class ProductService {
 
       // Lấy danh sách tất cả sản phẩm (có thể lọc theo category nếu muốn nhanh hơn, 
       // nhưng AI cho phép tìm xuyên category)
-      const allProducts = await productModel.find({ 
-         _id: { $ne: product._id }, 
-         isDeleted: false 
+      const allProducts = await productModel.find({
+         _id: { $ne: product._id },
+         isDeleted: false
       }).populate("categoryId");
 
       const topSimilar = this.recommendationService.findTopSimilar(
@@ -286,13 +292,13 @@ export class ProductService {
    async syncEmbeddings() {
       const products = await productModel.find({ isDeleted: false });
       console.log(`🚀 Syncing embeddings for ${products.length} products...`);
-      
+
       for (const product of products) {
          await this.queueManager.addJob(queueName.ai, jobName.generateEmbedding, {
             productId: product._id,
          });
       }
-      
+
       return { message: `Queued ${products.length} products for embedding generation` };
    }
 }

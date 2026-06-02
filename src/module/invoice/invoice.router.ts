@@ -29,8 +29,8 @@ export class InvoiceRouter {
     // ⚠️ /user/me phải TRƯỚC /:invoiceId
     this.router.get('/user/me', auth, ctrl.getInvoicesByUser.bind(ctrl));
 
-    // Lấy hóa đơn theo ID
-    this.router.get('/:invoiceId', ctrl.getInvoiceById.bind(ctrl));
+    // Lấy hóa đơn theo ID — ✅ phải có auth, không để public
+    this.router.get('/:invoiceId', auth, ctrl.getInvoiceById.bind(ctrl));
 
     // Tạo hóa đơn từ giỏ hàng
     this.router.post('/', auth, ctrl.createInvoice.bind(ctrl));

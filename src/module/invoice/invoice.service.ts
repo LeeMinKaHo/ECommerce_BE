@@ -10,6 +10,8 @@ import { ProductService } from '../product/product.service';
 import { BuyNowDTO } from './dto/buy-now.dto';
 import { InvoiceFilterDTO } from './dto/filter.dto';
 import { logger } from '../shared/middleware/logger';
+import productModel from '../product/model/product.model';
+import { Types } from 'mongoose';
 
 @Service()
 export class InvoiceService {
@@ -32,6 +34,41 @@ export class InvoiceService {
   /** Tái sử dụng result từ buildInvoiceItems thay vì tính lại price*quantity */
   private calculateTotal(builtItems: ReturnType<typeof this.buildInvoiceItems>) {
     return builtItems.reduce((sum, item) => sum + item.total, 0);
+  }
+
+  /**
+   * ✅ FIX #5 — Kiểm tra tồn kho trước khi checkout
+   * Throw OutOfStock nếu bất kỳ item nào không đủ hàng
+   */
+  private async validateStock(items: InvoiceRequestItem[]) {
+    for (const item of items) {
+      const product = await productModel.findOne(
+        {
+          _id: new Types.ObjectId(item.productId),
+          'colorVariants.sizes._id': new Types.ObjectId(item.variantId),
+          isDeleted: false,
+        },
+        { 'colorVariants.$': 1 }
+      );
+
+      if (!product || !product.colorVariants?.length) {
+        throw Error.ProductNotFound;
+      }
+
+      const sizeEntry = product.colorVariants[0].sizes.find(
+        (s) => s._id?.toString() === item.variantId
+      );
+
+      if (!sizeEntry || sizeEntry.quantity < item.quantity) {
+        logger.warn('[Invoice] Stock check failed', {
+          productId: item.productId,
+          variantId: item.variantId,
+          requested: item.quantity,
+          available: sizeEntry?.quantity ?? 0,
+        });
+        throw Error.OutOfStock;
+      }
+    }
   }
 
   // ─── Core ─────────────────────────────────────────────────────────────────────
@@ -71,19 +108,37 @@ export class InvoiceService {
 
     if (cartItems.length === 0) throw Error.CartIsEmpty;
 
+    // ✅ FIX #1 — Idempotency: kiểm tra user đã có PENDING invoice chưa
+    const existingPending = await invoiceModel.findOne({
+      userId: user._id.toString(),
+      status: InvoiceStatus.PENDING,
+    });
+    if (existingPending) {
+      logger.warn('[Invoice] Duplicate checkout attempt blocked', {
+        userId: user._id,
+        existingInvoiceId: existingPending._id,
+      });
+      throw Error.InvoiceAlreadyPending;
+    }
+
+    const invoiceItems = cartItems.map((item) => ({
+      productId: item.productId.toString(),
+      variantId: item.variantId,
+      name: item.name || 'No name',
+      size: item.size,
+      color: item.color,
+      imageUrl: item.imageUrl,
+      price: item.price,
+      quantity: item.quantity,
+    }));
+
+    // ✅ FIX #5 — Stock check trước khi tạo PayPal order
+    await this.validateStock(invoiceItems);
+
     const req: InvoiceRequest = {
       userId: user._id.toString(),
       shippingInfo,
-      items: cartItems.map((item) => ({
-        productId: item.productId.toString(),
-        variantId: item.variantId,
-        name: item.name || 'No name',
-        size: item.size,
-        color: item.color,
-        imageUrl: item.imageUrl,
-        price: item.price,
-        quantity: item.quantity,
-      })),
+      items: invoiceItems,
     };
 
     return this.createInvoice(req);
@@ -104,35 +159,67 @@ export class InvoiceService {
     const { colorVariant, sizeEntry, name, price } = product;
     const { color, imageUrls } = colorVariant;
     const { size } = sizeEntry;
-    const imageUrl = imageUrls[0] ?? "";
+    const imageUrl = imageUrls[0] ?? '';
+
+    const invoiceItems = [
+      {
+        productId,
+        variantId: sizeEntry._id.toString(),
+        name,
+        size,
+        color,
+        imageUrl,
+        price,
+        quantity,
+      },
+    ];
+
+    // ✅ FIX #5 — Stock check cho Buy Now
+    await this.validateStock(invoiceItems);
 
     const req: InvoiceRequest = {
       userId: user._id.toString(),
-      shippingInfo, // ✅ không còn bị bỏ quên
-      items: [
-        {
-          productId,
-          variantId: sizeEntry._id.toString(),
-          name,
-          size,
-          color,
-          imageUrl,
-          price,
-          quantity,
-        },
-      ],
+      shippingInfo,
+      items: invoiceItems,
     };
 
     return this.createInvoice(req);
   }
 
-  async captureInvoice(invoiceId: string) {
-    const invoice = await this.findInvoiceByPaypalOrderId(invoiceId);
+  async captureInvoice(paypalOrderId: string) {
+    const invoice = await this.findInvoiceByPaypalOrderId(paypalOrderId);
 
-    // PayPal trả về object, lấy .status để so sánh
-    const result = await this.paypalService.executePayment(invoice.paypalOrderId);
+    // ✅ FIX #2 — Idempotency: không capture lại nếu đã COMPLETED
+    if (invoice.status === InvoiceStatus.COMPLETED) {
+      logger.info('[Invoice] Capture skipped — already completed', {
+        paypalOrderId,
+        invoiceId: invoice._id,
+      });
+      return invoice;
+    }
+
+    // ✅ FIX #2 — Không capture nếu đã CANCELLED
+    if (invoice.status === InvoiceStatus.CANCELLED) {
+      throw Error.InvoiceAlreadyCaptured;
+    }
+
+    let result: any;
+    try {
+      const request = await this.paypalService.executePayment(invoice.paypalOrderId);
+      result = request;
+    } catch (err: any) {
+      // ✅ FIX #6 — Reliability: nếu PayPal capture lỗi → CANCEL invoice, không để PENDING mãi mãi
+      logger.error('[Invoice] PayPal capture failed — marking invoice as CANCELLED', {
+        paypalOrderId,
+        invoiceId: invoice._id,
+        error: err.message,
+      });
+      invoice.status = InvoiceStatus.CANCELLED;
+      await invoice.save();
+      throw err;
+    }
+
     const isCompleted = result?.status === 'COMPLETED';
-
     invoice.status = isCompleted ? InvoiceStatus.COMPLETED : InvoiceStatus.CANCELLED;
     await invoice.save();
 
@@ -143,7 +230,7 @@ export class InvoiceService {
 
     logger.info('[Invoice] Payment captured', {
       invoiceId: invoice._id,
-      paypalOrderId: invoiceId,
+      paypalOrderId,
       status: invoice.status,
     });
 

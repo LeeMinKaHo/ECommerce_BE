@@ -28,6 +28,15 @@ export class ProductResDTO {
    @Expose({ name: 'colorVariants' })
    variants: any[];
 
+   @Expose()
+   createdAt: string;
+
+   @Expose()
+   videoUrl?: string; // catwalk / outfit video
+
+   @Expose()
+   isActive: boolean;
+
    static fromEntity(data: IProduct) {
       const plainData = data.toObject();
       return plainToInstance(

@@ -48,8 +48,11 @@ export const Error = {
    ),
    // **************************** Invoice *******************************************
    InvoiceNotFound: new ErrorCustom("InvoiceNotFound", "Invoice not found"),
+   InvoiceAlreadyPending: new ErrorCustom("InvoiceAlreadyPending", "You already have a pending order. Please complete or cancel it first.", 409),
+   InvoiceAlreadyCaptured: new ErrorCustom("InvoiceAlreadyCaptured", "This order has already been paid.", 409),
    // **************************** Cart *******************************************
    CartIsEmpty: new ErrorCustom("CartIsEmpty", "Cart is empty"),
+   OutOfStock: new ErrorCustom("OutOfStock", "One or more items in your cart are out of stock", 409),
    // **************************** User *******************************************
    NotBelongUser: new ErrorCustom(
       "Thisnotbelongtouser",
